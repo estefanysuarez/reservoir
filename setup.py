@@ -28,7 +28,8 @@ def main():
         packages=find_packages(exclude=['reservoir/tests']),
         package_data=ldict['PACKAGE_DATA'],
         tests_require=ldict['TESTS_REQUIRE'],
-        license=ldict['LICENSE'])
+        license=ldict['LICENSE']
+        )
 
 
 if __name__ == '__main__':

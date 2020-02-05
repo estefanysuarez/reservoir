@@ -122,45 +122,46 @@ def create_inputs(task, input_nodes, n_nodes, **kwargs):
 #%% --------------------------------------------------------------------------------------------------------------------
 # TASKS INPUTS/OUTPUTS
 # ----------------------------------------------------------------------------------------------------------------------
-def writeDict(dict, filename, sep):
-    with open(filename, "a") as f:
-        for k, v in dict.iteritems():
-            f.write(k + sep + str(v) + '\n')
-    f.close()
-
-
-def readDict(filename, sep):
-
-    def is_number(s):
-        try:
-            float(s)
-            return True
-        except ValueError:
-            pass
-
-        try:
-            import unicodedata
-            unicodedata.numeric(s)
-            return True
-        except (TypeError, ValueError):
-            pass
-
-        return False
-
-    with open(filename, "r") as f:
-        dict = {}
-
-        for line in f:
-            k, v = line.split(sep)
-
-            print(is_number(v))
-
-            if is_number(v): dict[k] = np.float(v)
-
-            else: dict[k] = v
-
-    f.close()
-    return(dict)
+# def writeDict(dict, filename, sep):
+#     with open(filename, "a") as f:
+#         for k, v in dict.iteritems():
+#             f.write(k + sep + str(v) + '\n')
+#     f.close()
+#
+#
+# def readDict(filename, sep):
+#
+#     def is_number(s):
+#         try:
+#             float(s)
+#             return True
+#         except ValueError:
+#             pass
+#
+#         try:
+#             import unicodedata
+#             unicodedata.numeric(s)
+#             return True
+#         except (TypeError, ValueError):
+#             pass
+#
+#         return False
+#
+#     with open(filename, "r") as f:
+#         dict = {}
+#
+#         for line in f:
+#             k, v = line.split(sep)
+#
+#             print(is_number(v))
+#
+#             if is_number(v): dict[k] = np.float(v)
+#
+#             else: dict[k] = v
+#
+#     f.close()
+#     return(dict)
+#
 
 #%% --------------------------------------------------------------------------------------------------------------------
 # `PLOTTING`

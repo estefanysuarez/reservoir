@@ -1,3 +1,9 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Mar 12 10:10:14 2019
+
+@author: Estefany Suarez
+"""
 import os
 import numpy as np
 import pandas as pd
