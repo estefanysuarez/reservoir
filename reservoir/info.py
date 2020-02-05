@@ -11,7 +11,7 @@ INSTALL_REQUIRES = [
     'numpy>=1.17',
     'scipy>=1.1',
     'scikit-learn==0.19.1',
-    'pandas==0.23.0',
+    'pandas>=0.23.0',
     'matplotlib',
     'netneurotools',
     'seaborn>=0.8',
