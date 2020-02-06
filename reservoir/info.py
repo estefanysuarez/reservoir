@@ -18,6 +18,7 @@ INSTALL_REQUIRES = [
     'bctpy==0.5.0',
     'MDP==3.5',
     'tqdm==4.28.1',
+    'time'
 ]
 
 TESTS_REQUIRE = [
