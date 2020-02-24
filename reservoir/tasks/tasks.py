@@ -22,7 +22,7 @@ from sklearn import preprocessing
 #%% --------------------------------------------------------------------------------------------------------------------
 # TASKS
 # ----------------------------------------------------------------------------------------------------------------------
-def plot_pred_vs_target(y_pred, y_test, label, ax):
+def plot_pred_vs_target_original(y_pred, y_test, label, ax):
 
     # ax.scatter(x=y_test,
     #            y=y_pred,
@@ -34,7 +34,7 @@ def plot_pred_vs_target(y_pred, y_test, label, ax):
 
     sns.scatterplot(x=y_test,
                     y=y_pred,
-                    s=15,
+                    # s=15,
                     # linewidths=0.3,
                     # edgecolors='dimgrey',
                     label=label,
@@ -42,7 +42,30 @@ def plot_pred_vs_target(y_pred, y_test, label, ax):
                     )
 
 
-def run_memory_capacity(s, reservoir_states, TAU=None, normalize=False, ax=None):
+def plot_pred_vs_target(y_pred, y_test, label, ax):
+
+    # ax.scatter(x=y_test,
+    #            y=y_pred,
+    #            s=15,
+    #            linewidths=0.3,
+    #            # edgecolors='dimgrey',
+    #            label=label
+    #            )
+
+    sns.regplot(x=y_test[:200],
+                y=y_pred[:200],
+                label=label,
+                fit_reg=True,
+                scatter=True,
+                scatter_kws={"s": 40},
+                ci=None,
+                # linewidths=0.3,
+                # edgecolors='dimgrey',
+                ax=ax
+                )
+
+
+def run_memory_capacity(s, reservoir_states, TAU=None, normalize=False, ax=None,**kwargs):
     """
     In this task, the linear readout is required to replay a delayed version of
     the input sequence s.
@@ -70,6 +93,10 @@ def run_memory_capacity(s, reservoir_states, TAU=None, normalize=False, ax=None)
 
     res = []
 
+    fig = plt.figure(num=1, figsize=(10,10)) #*****************************
+    ax = plt.subplot(111) #*****************************
+    sns.set(style="ticks")#*****************************
+
     for tau in TAU:
 
        # print('---------------Running Linear Regression!!!---------------')
@@ -78,10 +105,8 @@ def run_memory_capacity(s, reservoir_states, TAU=None, normalize=False, ax=None)
 
        with np.errstate(divide='ignore', invalid='ignore'):
            perf = np.abs(np.corrcoef(y_test[:-tau], y_pred)[0][1])
-           # perf = (np.corrcoef(y_test[:-tau], y_pred)[0][1])**2
-           # perf = np.cov(y_test[:-tau], y_pred)[0][1]**2/(np.var(y_test[:-tau])*np.var(y_pred))
 
-           # if perf > 0.85:
+           # if perf > 0.80:
            #     print('\n----------------------')
            #     print(' Tau    = ' + str(tau))
            #     print(' perf   =   ' + str(perf))
@@ -90,11 +115,20 @@ def run_memory_capacity(s, reservoir_states, TAU=None, normalize=False, ax=None)
            #     plt.show()
            #     plt.close()
 
-           if ax is not None:
-               plot_pred_vs_target(y_test[:-tau], y_pred, r'$\tau$'+' = ' + str(tau) + ' - ' + r'$r = %.2f $' % (np.round(perf, 2)), ax)
+       if ax is not None:
+           plot_pred_vs_target(y_test[:-tau], y_pred, r'$R: %.2f $' % (np.round(perf, 2)), ax)
 
        # save results
        res.append(perf)
+
+    # ax.set_xlim(-1,1) #*****************************
+    # ax.set_ylim(-1,1) #*****************************
+    #
+    # sns.despine(offset=10, trim=True, bottom=False) #*****************************
+
+    fig.savefig(fname='C:/Users/User/Desktop/poster/figures/y_pred_y_emp.eps', transparent=True, bbox_inches='tight', dpi=300) #*****************************
+    fig.savefig(fname='C:/Users/User/Desktop/poster/figures/y_pred_y_emp.jpg', transparent=True, bbox_inches='tight', dpi=300) #*****************************
+    plt.show()
 
     return np.array(res), TAU
 
@@ -313,8 +347,8 @@ def run_multiple_tasks(task, target, res_states, readout_nodes=None, include_alp
     res = []
     for idx, x in enumerate(res_states):
         if alpha[idx] in include_alpha:
-            # print('-----------------------------------------------------------')
-            # print('alpha = ' + str(alpha[idx]))
+            print('-----------------------------------------------------------')
+            print('alpha = ' + str(alpha[idx]))
 
             # define matrix X
             if readout_nodes is not None:
@@ -371,7 +405,7 @@ def run_single_tasks(task, target, res_states, readout_nodes=None, **kwargs):
 #%% --------------------------------------------------------------------------------------------------------------------
 # GRAL METHODS
 # ----------------------------------------------------------------------------------------------------------------------
-def get_capacity_and_perf(task, performance, task_params, thres=0.9, normalize=False):
+def get_capacity_and_perf(task, performance, task_params, thres=0.9, normalize=False, **kwargs):
     """
         This method returns the parameters at which the best performance across
         different alpha values occurs.

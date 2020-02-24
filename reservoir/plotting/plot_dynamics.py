@@ -12,9 +12,9 @@ from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.colors import ListedColormap
 from netneurotools import plotting
 import seaborn as sns
+from sklearn.preprocessing import MinMaxScaler
 
-import tasks
-import utils
+from ..tasks import (tasks, utils)
 
 #%matplotlib qt
 
@@ -148,45 +148,51 @@ def correlation(task, factor, res_states, class_names, class_mapping, t_ini=0, t
     if ax is None: plt.show()
 
 
-def timeseries(task, factor, res_states, class_names, class_mapping, t_ini =0, t_end=100, nodes=None, center=False, ax=None):
+def timeseries(num_fig, res_states, class_names, class_mapping, t_ini =0, t_end=100, nodes=None, center=False, ax=None, title=None, task=None, factor=None):
 
-    if center: res_states = res_states.copy()-res_states.mean(axis=1)[:,np.newaxis]
+    if center:
+        res_states = res_states.copy()-res_states.mean(axis=1)[:,np.newaxis]
+        scaler = MinMaxScaler(feature_range=(-1,1))
+        res_states = scaler.fit_transform(res_states).squeeze()
+
     if nodes is not None:
-        res_states  = res_states[:,nodes]
+        res_states  = res_states[:,nodes].squeeze()
         class_mapping = class_mapping[nodes]
 
     t_ini = int(np.percentile(np.arange(len(res_states)), t_ini))
     t_end = int(np.percentile(np.arange(len(res_states)), t_end))
     res_states = res_states[t_ini:t_end]
 
+    sns.set(style="ticks")
+
     if ax is None:
-        fig = plt.figure(num=2, figsize=(8,5))
+        fig = plt.figure(num=num_fig, figsize=(8,3))
         ax = plt.subplot(111)
 
     #-----------------------------------------------
     l1 = ax.plot(np.arange(t_ini, t_end), res_states, alpha=0.8)
+
     for idx, line in enumerate(l1):
         line.set_color(COLORS[np.where(class_names == class_mapping[idx])[0][0]])
 
-    # sns.lineplot(data=res_states,
-    #              palette=[COLORS[np.where(class_names == mapp)[0][0]] for mapp in class_mapping],
-    #              dashes=False,
-    #              legend=False,
-    #              # col=class_mapping,
-    #              ax=ax
-    #              )
-    #-----------------------------------------------
+
+    ax.set_ylim(-1,1)
     # ax.get_legend().remove()
-    ax.set_ylabel('signal')
+    # ax.set_ylabel('signal')
 
     # ax.set_xticklabels(labels=np.arange(t_ini, t_end))
-    ax.set_xlabel('time steps')
+    # ax.set_xlabel('time steps')
 
-    plt.title(task + ' - res_states - factor: ' + str(factor), fontsize=15)
+    if (task is not None) and (factor is not None): plt.title(task + ' - res_states - factor: ' + str(factor), fontsize=15)
+
     sns.despine(offset=10, trim=True)
     plt.tight_layout()
 
-    if ax is None: plt.show()
+    if title is not None:
+        fig.savefig(fname='C:/Users/User/Desktop/poster/figures/' + title + '.jpg', transparent=True, bbox_inches='tight', dpi=300)
+        fig.savefig(fname='C:/Users/User/Desktop/poster/figures/' + title + '.eps', transparent=True, bbox_inches='tight', dpi=300)
+
+    # if ax is None: plt.show()
 
 
 def spreading(coords, res_states, input_nodes=None, apply_thr=True, thr=0.1):
@@ -284,145 +290,79 @@ def spikes(res_states, class_names, class_mapping, output_nodes, thr=0.1):
     plt.show()
 
 
-def brain_dots(coords, class_names, class_mapping, nodes, view='superior', ax=None, title=None):
-
-    # z-score coordinates for better visualization
-    coords = (coords-np.mean(coords, axis=0))/np.std(coords, axis=0)
-
-    # create mask according to nodes
-    color_mask = np.array([1 if node in nodes else 0 for node in range(len(coords))]).astype(int)
-
-    # create array of colors according to class mapping
-    class_mapping_int = np.array([np.where(class_names == mapp)[0][0] for mapp in class_mapping]).astype(int)
-    colors = np.array([COLORS[np.where(class_names == mapp)[0][0]] if node in nodes else 'none' for node, mapp in enumerate(class_mapping)])
-
-    size = 300
-
-    if ax is None:
-        fig = plt.figure(num=1, figsize=(.8*5.25,.8*4))#2*5.25,2*4))
-        ax = plt.subplot(111, projection='3d')
-
-    ax.scatter(xs=coords[color_mask == 1,0],
-               ys=coords[color_mask == 1,1],
-               zs=coords[color_mask == 1,2],
-               c=colors[color_mask == 1],
-               s=size,
-               linewidths=0.8,
-               edgecolors='dimgrey',
-               alpha=0.6
-               )
-
-    ax.scatter(xs=coords[color_mask == 0,0],
-               ys=coords[color_mask == 0,1],
-               zs=coords[color_mask == 0,2],
-               s=size,
-               linewidths=0.8,
-               edgecolors='dimgrey',
-               facecolors=colors[color_mask == 0]
-               )
-
-    # ax.set_title('XXXX', fontsize=10, loc=)
-    ax.grid(False)
-    ax.axis('off')
-
-    if view == 'superior':
-        ax.view_init(90,270)
-        ax.set(xlim=0.57 *np.array(ax.get_xlim()),
-               ylim=0.57 *np.array(ax.get_ylim()),
-               zlim=0.60 *np.array(ax.get_zlim()),
-               aspect=1.1
-               )
-
-    if view == 'left':
-        ax.view_init(0,180)
-        ax.set(xlim=0.59 * np.array(ax.get_xlim()),
-               ylim=0.59 * np.array(ax.get_ylim()),
-               zlim=0.60 * np.array(ax.get_zlim()),
-               # aspect=0.55 #1.1
-               )
-
-    if view == 'right':
-        ax.view_init(0,0)
-        ax.set(xlim=0.59 * np.array(ax.get_xlim()),
-               ylim=0.59 * np.array(ax.get_ylim()),
-               zlim=0.60 * np.array(ax.get_zlim()),
-               # aspect=0.55 #1.1
-               )
-
-    if title is not None: plt.title(title, fontsize=15, loc='left') #pad=5)
-
-    plt.subplots_adjust(left=0, right=1, bottom=0, top=1)
-    plt.gca().patch.set_facecolor('white')
-    sns.despine()
-
-    if ax is None: plt.show()
-
-
-def brain_networks(coords, class_names, class_mapping):
-    """
-        Dot brain plots ... RSN brain plots
-    """
-
-    colors = np.array([COLORS[np.where(class_names == mapp)[0][0]] for mapp in class_mapping])
-
-    fig = plt.figure(num=np.random.randint(0, 100), figsize=(17,1.33*5))
-
-    coords = (coords-np.mean(coords, axis=0))/np.std(coords, axis=0)
-
-    # lateral view
-    ax1 = plt.subplot(121, projection='3d')
-    ax2 = plt.subplot(122, projection='3d')
-    for clase in class_names:
-
-        # vector of colors
-        c= colors[np.where(class_mapping == clase)[0]]
-        s = 300
-
-        # lateral view - lh
-        ax1.scatter(xs=coords[np.where(class_mapping == clase)[0],0],
-                    ys=coords[np.where(class_mapping == clase)[0],1],
-                    zs=coords[np.where(class_mapping == clase)[0],2],
-                    linewidths=0.5,
-                    edgecolors='grey',
-                    s=s,
-                    c=c)
-
-        # lateral view - rh
-        ax2.scatter(xs=coords[np.where(class_mapping == clase)[0],0],
-                    ys=coords[np.where(class_mapping == clase)[0],1],
-                    zs=coords[np.where(class_mapping == clase)[0],2],
-                    linewidths=0.5,
-                    edgecolors='grey',
-                    s=s,
-                    c=c,
-                    label=clase)
-
-    ax1.view_init(0,180)
-    ax1.grid(False)
-    ax1.axis('off')
-    ax1.set(xlim=0.59 * np.array(ax1.get_xlim()),
-            ylim=0.59 * np.array(ax1.get_ylim()),
-            zlim=0.60 * np.array(ax1.get_zlim()),
-            )
-    plt.gca().patch.set_facecolor('white')
-
-    ax2.view_init(0,0)
-    ax2.grid(False)
-    ax2.axis('off')
-    ax2.set(xlim=0.59 * np.array(ax2.get_xlim()),
-            ylim=0.59 * np.array(ax2.get_ylim()),
-            zlim=0.60 * np.array(ax2.get_zlim()),
-            )
-    plt.gca().patch.set_facecolor('white')
-
-    plt.figlegend(loc='lower center', ncol=8, labelspacing=0.5, fontsize=12, frameon=False)
-#    fig.suptitle('Resting State Networks - Yeo', fontsize=50)
-#    fig.savefig(fname=os.path.join(), transparent=False, bbox_inches='tight')
-
-    sns.despine()
-    fig.tight_layout()
-    plt.show()
-
+# def brain_dots(coords, class_names, class_mapping, nodes, view='superior', ax=None, title=None):
+#
+#     # z-score coordinates for better visualization
+#     coords = (coords-np.mean(coords, axis=0))/np.std(coords, axis=0)
+#
+#     # create mask according to nodes
+#     color_mask = np.array([1 if node in nodes else 0 for node in range(len(coords))]).astype(int)
+#
+#     # create array of colors according to class mapping
+#     class_mapping_int = np.array([np.where(class_names == mapp)[0][0] for mapp in class_mapping]).astype(int)
+#     colors = np.array([COLORS[np.where(class_names == mapp)[0][0]] if node in nodes else 'none' for node, mapp in enumerate(class_mapping)])
+#
+#     size = 300
+#
+#     if ax is None:
+#         fig = plt.figure(num=1, figsize=(.8*5.25,.8*4))#2*5.25,2*4))
+#         ax = plt.subplot(111, projection='3d')
+#
+#     ax.scatter(xs=coords[color_mask == 1,0],
+#                ys=coords[color_mask == 1,1],
+#                zs=coords[color_mask == 1,2],
+#                c=colors[color_mask == 1],
+#                s=size,
+#                linewidths=0.8,
+#                edgecolors='dimgrey',
+#                alpha=0.6
+#                )
+#
+#     ax.scatter(xs=coords[color_mask == 0,0],
+#                ys=coords[color_mask == 0,1],
+#                zs=coords[color_mask == 0,2],
+#                s=size,
+#                linewidths=0.8,
+#                edgecolors='dimgrey',
+#                facecolors=colors[color_mask == 0]
+#                )
+#
+#     # ax.set_title('XXXX', fontsize=10, loc=)
+#     ax.grid(False)
+#     ax.axis('off')
+#
+#     if view == 'superior':
+#         ax.view_init(90,270)
+#         ax.set(xlim=0.57 *np.array(ax.get_xlim()),
+#                ylim=0.57 *np.array(ax.get_ylim()),
+#                zlim=0.60 *np.array(ax.get_zlim()),
+#                aspect=1.1
+#                )
+#
+#     if view == 'left':
+#         ax.view_init(0,180)
+#         ax.set(xlim=0.59 * np.array(ax.get_xlim()),
+#                ylim=0.59 * np.array(ax.get_ylim()),
+#                zlim=0.60 * np.array(ax.get_zlim()),
+#                # aspect=0.55 #1.1
+#                )
+#
+#     if view == 'right':
+#         ax.view_init(0,0)
+#         ax.set(xlim=0.59 * np.array(ax.get_xlim()),
+#                ylim=0.59 * np.array(ax.get_ylim()),
+#                zlim=0.60 * np.array(ax.get_zlim()),
+#                # aspect=0.55 #1.1
+#                )
+#
+#     if title is not None: plt.title(title, fontsize=15, loc='left') #pad=5)
+#
+#     plt.subplots_adjust(left=0, right=1, bottom=0, top=1)
+#     plt.gca().patch.set_facecolor('white')
+#     sns.despine()
+#
+#     if ax is None: plt.show()
+#
 
 #-------------------------------------------------------------------------------
 # def brain_dots(coords, class_names, class_mapping, nodes, title, view='superior', ax=None):

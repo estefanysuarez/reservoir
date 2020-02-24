@@ -20,14 +20,14 @@ from scipy.spatial.distance import cdist
 # ----------------------------------------------------------------------------------------------------------------------
 def get_network_properties(conn, cortical, class_mapping, property_list=None, include_subctx=True):
 
-    if property_list == None:
-        property_list = ['node_degree',
+    if property_list is None:
+        property_list = ['participation_coeff',
+                         'node_degree',
                          'node_strength',
                          'wei_clustering_coeff',
                          'bin_clustering_coeff',
                          'wei_centrality',
                          'bin_centrality',
-                         'participation_coeff'
                          ]
 
     if include_subctx:
@@ -62,7 +62,6 @@ def get_network_properties(conn, cortical, class_mapping, property_list=None, in
     if 'bin_centrality' in property_list:
         N = len(conn)
         properties.append(centrality.betweenness_bin(conn_bin)/((N-1)*(N-2)))
-
 
     df = pd.DataFrame(np.column_stack(properties),
                       columns=property_list)

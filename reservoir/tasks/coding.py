@@ -52,12 +52,14 @@ def basic_encoder(task, target, reservoir_states, class_labels, class_mapping, *
                                                            target=target,
                                                            res_states=reservoir_states,
                                                            readout_nodes=output_nodes,
+                                                           **kwargs
                                                            )
 
        # get max capacity and performance per alpha value
        performance, capacity = tasks.get_capacity_and_perf(task=task,
                                                            performance=perf,
                                                            task_params=task_params,
+                                                           **kwargs
                                                            )
 
        # create temporal dataframe
@@ -107,7 +109,7 @@ def basic_decoder(task, target, reservoir_states, class_labels, class_mapping, b
             tmp_perf = []
             for i in range(100):
 
-                # print('-------------------' + str(i) + '--------------------')
+                print('-------------------' + str(i) + '--------------------')
 
                 output_nodes = []
                 for num_nodes, mapp in zip(new_conn_profile, unique_mapps):
