@@ -6,7 +6,7 @@ Created on Fri Mar  1 09:40:33 2019
 """
 import numpy as np
 import matplotlib.pyplot as plt
-from ..tasks import utils
+from ..tasks import io
 
 #%% --------------------------------------------------------------------------------------------------------------------
 # NETWORK SIMULATION

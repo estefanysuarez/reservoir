@@ -44,7 +44,7 @@ def sort_class_labels(class_labels):
         return class_labels
 
 
-def get_coding_scores_per_class(df_encoding, df_decoding, include_alpha=None): #score='capacity',
+def get_coding_scores_per_class(df_encoding, df_decoding, include_alpha=None):
 
     # get class labels
     class_labels = sort_class_labels(np.unique(df_encoding['class']))
@@ -93,19 +93,28 @@ def get_coding_scores_per_class(df_encoding, df_decoding, include_alpha=None): #
 # --------------------------------------------------------------------------------------------------------------------
 # PLOTTING
 # ----------------------------------------------------------------------------------------------------------------------
-# AVG/SUM SCORES ACROSS ALPHA VALUES
-def lineplot_enc_vs_dec(task_name, df_scores, score):
+# AVG SCORES ACROSS ALPHA VALUES
+def lineplot_enc_vs_dec(task_name, df_scores, score, hue='coding', **kwargs):
 
-    sns.set(style="ticks")
-    fig = plt.figure(num=1, figsize=(10,5))
+    sns.set(style="ticks", font_scale=2.0)
+    fig = plt.figure(num=1, figsize=(12,5))
+
+    if hue == 'coding':
+        hue_order = ['encoding', 'decoding']
+        palette = {'encoding':ENCODE_COL, 'decoding':DECODE_COL}
+
+    elif hue == 'rsn':
+        hue_order = sort_class_labels(np.unique(df_scores['rsn']))
+        palette = sns.color_palette("husl", 8)[:-1]
 
     ax = plt.subplot(111)
     sns.lineplot(x='class',
                  y=score,
-                 hue='coding',
+                 hue=hue,
+                 hue_order=hue_order,
                  style='coding',
                  data=df_scores,
-                 palette={'encoding':ENCODE_COL, 'decoding':DECODE_COL},
+                 palette=palette,
                  linewidth=1, #2, 1
                  markers=True, #'D'
                  markersize=8, #12, 5
@@ -114,16 +123,16 @@ def lineplot_enc_vs_dec(task_name, df_scores, score):
                  )
 
     ax.legend(fontsize=15, frameon=True, ncol=1, loc='upper right')
-    ax.get_legend().remove()
+    # ax.get_legend().remove()
 
-    # sns.despine(offset=10, trim=True, bottom=False)
+    sns.despine(offset=10, trim=True, bottom=False)
     # fig.savefig(fname='C:/Users/User/Desktop/poster/figures/line_coding_across_alpha.eps', transparent=True, bbox_inches='tight', dpi=300)
     # fig.savefig(fname='C:/Users/User/Desktop/poster/figures/line_coding_across_alpha.jpg', transparent=True, bbox_inches='tight', dpi=300)
     plt.show()
     plt.close()
 
 
-def scatterplot_enc_vs_dec(task_name, df_scores, score):
+def scatterplot_enc_vs_dec(task_name, df_scores, score, hue=None):
 
     # get encoding - decoding difference
     encod_scores = df_scores.loc[df_scores['coding'] == 'encoding', ['class', score]]
@@ -135,16 +144,31 @@ def scatterplot_enc_vs_dec(task_name, df_scores, score):
                           )
     tmp_df['coding score'] = tmp_df['coding score'].astype(float)
 
+    # get drop rename
+    # encod_scores = df_scores.query('coding == "encoding"') \
+    #                         .drop(['coding'], axis=1) \
+    #                         .rename(dict(performance='encoding_performance',
+    #                                      capacity='encoding_capacity'), axis=1)
+    # decod_scores = df_scores.query('coding == "decoding"') \
+    #                         # .get(['performance', 'capacity']) \
+    #                         .rename(dict(performance='decoding_performance',
+    #                                      capacity='decoding_capacity'), axis=1)
+    #
+    # tmp_df = pd.concat([encod_scores, decod_scores], axis=1)
+
+
     # plot
-    sns.set(style="ticks")
-    fig = plt.figure(num=3, figsize=(5,5))
+    sns.set(style="ticks", font_scale=2.0)
+    fig = plt.figure(num=3, figsize=(8,8))
+
+    if hue is None: hue = 'class'
 
     ax = plt.subplot(111)
     sns.scatterplot(x='decoding',
                     y='encoding',
                     data=tmp_df,
-                    hue='class',
-                    s=250,  #1000*np.abs(tmp_df['coding score']),
+                    hue=hue,
+                    s=500,  #1000*np.abs(tmp_df['coding score']),
                     # sizes=(800,1500),
                     palette=COLORS[:-1],
                     legend='full',
@@ -169,8 +193,8 @@ def scatterplot_enc_vs_dec(task_name, df_scores, score):
     # ax.set_ylabel('encoding')
     ax.yaxis.set_major_locator(plt.MultipleLocator(0.5))
 
-    # ax.legend(fontsize=10, frameon=False, ncol=1, loc='upper right')
-    ax.get_legend().remove()
+    ax.legend(fontsize=20, frameon=False, ncol=1, loc='lower right')
+    # ax.get_legend().remove()
 
     sns.despine(offset=10, trim=True)
     #fig.savefig(fname=os.path.join(RES_TASK_DIR, 'performance.jpg'), transparent=True, bbox_inches='tight', dpi=300,)
@@ -189,8 +213,8 @@ def lineplot_enc_vs_dec_across_alpha(task_name, df_encoding, df_decoding, score,
     # df_decoding = df_decoding.loc[df_decoding['class'] == 'SM', :]
 
     # plot
-    sns.set(style="ticks")
-    fig = plt.figure(num=1, figsize=(20,4)) #(20,7))
+    sns.set(style="ticks", font_scale=2.0)
+    fig = plt.figure(num=1, figsize=(20,5)) #(20,7))
 
     ax1 = plt.subplot(121)
     ax2 = plt.subplot(122)
@@ -220,21 +244,21 @@ def lineplot_enc_vs_dec_across_alpha(task_name, df_encoding, df_decoding, score,
                  )
 
     # ax1.set_ylim(4,14)
-    ax1.set_xlabel('alpha')
-    ax1.set_ylabel('encoding ' + score)
+    # ax1.set_xlabel('alpha', fontsize=20)
+    # ax1.set_ylabel('encoding ' + score, fontsize=20)
+    # ax1.legend(fontsize=13, frameon=False, ncol=1, loc='upper right')
     ax1.get_legend().remove()
     # ax1.set_xlim(0,2)
     # ax1.xaxis.set_major_locator(MultipleLocator(0.5))
     # ax1.set_ylim(5,15)
     # ax1.yaxis.set_major_locator(MultipleLocator(5))
     # ax1.set_xticks(np.arange(len(include_alpha)))
-    # ax1.set_xticklabels(include_alpha)
-    # ax1.legend(fontsize=13, frameon=False, ncol=1, loc='upper right')
+    # ax1.set_xticklabels(ax1.get_xticklabels(),fontsize=17)
 
 
     # ax2.set_ylim(4,14)
-    ax2.set_xlabel('alpha')
-    ax2.set_ylabel('decoding ' + score)
+    # ax2.set_xlabel('alpha', fontsize=15)
+    # ax2.set_ylabel('decoding ' + score, fontsize=15)
     # ax2.set_xlim(0,2)
     # ax2.xaxis.set_major_locator(MultipleLocator(0.5))
     # ax2.set_ylim(5,15)
@@ -245,21 +269,22 @@ def lineplot_enc_vs_dec_across_alpha(task_name, df_encoding, df_decoding, score,
     # ax2.get_legend().remove()
 
     sns.despine(offset=10, trim=True)
-    fig.savefig(fname='C:/Users/User/Desktop/poster/figures/coding_per_alpha.eps', transparent=True, bbox_inches='tight', dpi=300)
-    fig.savefig(fname='C:/Users/User/Desktop/poster/figures/coding_per_alpha.jpg', transparent=True, bbox_inches='tight', dpi=300)
+    # fig.savefig(fname='C:/Users/User/Desktop/poster/figures/coding_per_alpha.eps', transparent=True, bbox_inches='tight', dpi=300)
+    # fig.savefig(fname='C:/Users/User/Desktop/poster/figures/coding_per_alpha.jpg', transparent=True, bbox_inches='tight', dpi=300)
     plt.show()
     plt.close()
 
 
 # --------------------------------------------------------------------------------------------------------------------
 # VALIDATION: AVERAGE ACROSS ALPHA VALUES - SUBSAMPLING/BOOTSTRAP RESAMPLING
-# ----------------------------------------------------------------------------------------------------------------------
-def boxplot_enc_vs_dec(df_scores, score, hue_order=None):
+# --------------------------------------------------------------------------------------------------------------------
+def boxplot_enc_vs_dec(df_scores, score, class_type, hue_order=None):
+
     sns.set(style="ticks")
     fig = plt.figure(num=1, figsize=(10,5))
 
     ax = plt.subplot(111)
-    axis = sns.boxplot(x='class',
+    axis = sns.boxplot(x=class_type, #'class' 'rsn' 'cyt'
                        y=score,
                        orient='v',
                        hue='coding',
@@ -275,7 +300,7 @@ def boxplot_enc_vs_dec(df_scores, score, hue_order=None):
         patch.set_facecolor((r, g, b, 0.8))
 
     ax.legend(fontsize=15, frameon=False, ncol=1, loc='upper right')
-    ax.get_legend().remove()
+    # ax.get_legend().remove()
 
     sns.despine(offset=10, trim=True, bottom=False)
     # fig.savefig(fname='C:/Users/User/Desktop/poster/figures/boxplot_coding_across_alpha.eps', transparent=True, bbox_inches='tight', dpi=300)
@@ -285,9 +310,6 @@ def boxplot_enc_vs_dec(df_scores, score, hue_order=None):
 
 
 def boxplot_coding_scores(df_scores, score, hue_order=None):
-
-    # get class labels
-    class_labels = sort_class_labels(np.unique(df_scores['class']))
 
     # get encoding - decoding difference
     encod_scores = df_scores.loc[df_scores['coding'] == 'encoding', ['class', score]]
@@ -302,7 +324,10 @@ def boxplot_coding_scores(df_scores, score, hue_order=None):
     sns.set(style="ticks")
     fig = plt.figure(num=1, figsize=(10,5))
 
-    if hue_order is not None: palette = np.array([np.array(COLORS)[np.where(class_labels == clase)[0][0]] for clase in hue_order])
+    # get class labels
+    if hue_order is not None:
+        class_labels = sort_class_labels(np.unique(df_scores['class']))
+        palette = np.array([np.array(COLORS)[np.where(class_labels == clase)[0][0]] for clase in hue_order])
     else: palette = COLORS[:-1]
 
     ax = plt.subplot(111)
@@ -334,9 +359,6 @@ def boxplot_coding_scores(df_scores, score, hue_order=None):
 
 def lineplot_coding_scores(df_scores, score, hue_order=None):
 
-    # get class labels
-    class_labels = sort_class_labels(np.unique(df_scores['class']))
-
     # get encoding - decoding difference
     encod_scores = df_scores.loc[df_scores['coding'] == 'encoding', ['class', score]]
     decod_scores = df_scores.loc[df_scores['coding'] == 'decoding', ['class', score]]
@@ -350,7 +372,9 @@ def lineplot_coding_scores(df_scores, score, hue_order=None):
     sns.set(style="ticks")
     fig = plt.figure(num=1, figsize=(10,5))
 
-    if hue_order is not None: palette = np.array([np.array(COLORS)[np.where(class_labels == clase)[0][0]] for clase in hue_order])
+    if hue_order is not None:
+        class_labels = sort_class_labels(np.unique(df_scores['class']))
+        palette = np.array([np.array(COLORS)[np.where(class_labels == clase)[0][0]] for clase in hue_order])
     else: palette = COLORS[:-1]
 
     ax = plt.subplot(111)
@@ -380,9 +404,6 @@ def lineplot_coding_scores(df_scores, score, hue_order=None):
 
 def boxplot_lineplot_coding_scores(df_scores, score, effect_size):
 
-    # get class labels
-    class_labels = sort_class_labels(np.unique(df_scores['class']))
-
     # get encoding - decoding difference
     encod_scores = df_scores.loc[df_scores['coding'] == 'encoding', ['class', score]]
     decod_scores = df_scores.loc[df_scores['coding'] == 'decoding', ['class', score]]
@@ -399,6 +420,8 @@ def boxplot_lineplot_coding_scores(df_scores, score, effect_size):
     ax1 = plt.subplot(111)
     ax2 = ax1.twinx()
 
+    # get class labels
+    class_labels = sort_class_labels(np.unique(df_scores['class']))
     print(class_labels[np.argsort(effect_size)])
     print(np.sort(effect_size))
 

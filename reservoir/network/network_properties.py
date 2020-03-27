@@ -18,26 +18,37 @@ from scipy.spatial.distance import cdist
 #%% --------------------------------------------------------------------------------------------------------------------
 # NETWORKS PROPERTIES
 # ----------------------------------------------------------------------------------------------------------------------
+def get_default_property_list():
+    property_list = ['participation_coeff',
+                     'node_degree',
+                     'node_strength',
+                     'wei_clustering_coeff',
+                     'bin_clustering_coeff',
+                     'wei_centrality',
+                     'bin_centrality',
+                     ]
+    return property_list
+
+
 def get_network_properties(conn, cortical, class_mapping, property_list=None, include_subctx=True):
+    """
+        Given a weighted connectivity matrix, this methods estimates the local
+        properties given by property_list.
+    """
+    if property_list is None: property_list = get_default_property_list()
 
-    if property_list is None:
-        property_list = ['participation_coeff',
-                         'node_degree',
-                         'node_strength',
-                         'wei_clustering_coeff',
-                         'bin_clustering_coeff',
-                         'wei_centrality',
-                         'bin_centrality',
-                         ]
+    #REMOVE SUBCTX AD HOC
+    # if include_subctx:
+    #     conn_wei = conn.copy()
+    #     conn_bin = conn_wei.copy().astype(bool).astype(int)
+    #
+    # else:
+    #     ctx = np.where(cortical==1)[0]
+    #     conn_wei = conn.copy()[np.ix_(ctx, ctx)]
+    #     conn_bin = conn_wei.copy().astype(bool).astype(int)
 
-    if include_subctx:
-        conn_wei = conn.copy()
-        conn_bin = conn_wei.copy().astype(bool).astype(int)
-
-    else:
-        ctx = np.where(cortical==1)[0]
-        conn_wei = conn.copy()[np.ix_(ctx, ctx)]
-        conn_bin = conn_wei.copy().astype(bool).astype(int)
+    conn_wei = conn.copy()
+    conn_bin = conn_wei.copy().astype(bool).astype(int)
 
     properties = []
     if 'participation_coeff' in property_list:
@@ -62,6 +73,9 @@ def get_network_properties(conn, cortical, class_mapping, property_list=None, in
     if 'bin_centrality' in property_list:
         N = len(conn)
         properties.append(centrality.betweenness_bin(conn_bin)/((N-1)*(N-2)))
+
+    #REMOVE SUBCTX POST-HOC
+    if not include_subctx: properties = [prop[cortical==1] for prop in properties]
 
     df = pd.DataFrame(np.column_stack(properties),
                       columns=property_list)

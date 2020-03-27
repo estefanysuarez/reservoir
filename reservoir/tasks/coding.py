@@ -48,19 +48,19 @@ def basic_encoder(task, target, reservoir_states, class_labels, class_mapping, *
        output_nodes = np.where(class_mapping == clase)[0]
 
        # get performance (R) across task parameters, task params and alpha values
-       perf, task_params, alpha = tasks.run_multiple_tasks(task=task,
-                                                           target=target,
-                                                           res_states=reservoir_states,
-                                                           readout_nodes=output_nodes,
-                                                           **kwargs
-                                                           )
+       perf, task_params, alpha = tasks.run_task(task=task,
+                                                 target=target,
+                                                 reservoir_states=reservoir_states,
+                                                 readout_nodes=output_nodes,
+                                                 **kwargs
+                                                 )
 
        # get max capacity and performance per alpha value
-       performance, capacity = tasks.get_capacity_and_perf(task=task,
-                                                           performance=perf,
-                                                           task_params=task_params,
-                                                           **kwargs
-                                                           )
+       performance, capacity = tasks.get_scores_per_alpha(task=task,
+                                                          performance=perf,
+                                                          task_params=task_params,
+                                                          **kwargs
+                                                          )
 
        # create temporal dataframe
        tmp_df = pd.DataFrame(data=np.column_stack((alpha, performance, capacity)),
@@ -106,7 +106,7 @@ def basic_decoder(task, target, reservoir_states, class_labels, class_mapping, b
 
 
             #build distribution of performances
-            tmp_perf = []
+            tmp = []
             for i in range(100):
 
                 print('-------------------' + str(i) + '--------------------')
@@ -118,22 +118,24 @@ def basic_decoder(task, target, reservoir_states, class_labels, class_mapping, b
                     output_nodes.extend(np.random.choice(np.where(tmp_set_mapp)[0], num_nodes, replace=False))
 
                 # get performance (R), task params and alpha values
-                perf, task_params, alpha = tasks.run_multiple_tasks(task=task,
-                                                                    target=target,
-                                                                    res_states=reservoir_states,
-                                                                    readout_nodes=output_nodes,
-                                                                    )
+                perf, task_params, alpha = tasks.run_task(task=task,
+                                                          target=target,
+                                                          reservoir_states=reservoir_states,
+                                                          readout_nodes=output_nodes,
+                                                          **kwargs
+                                                          )
 
                 # get max capacity and performance per alpha value
-                tmp_performance, tmp_capacity = tasks.get_capacity_and_perf(task=task,
-                                                                            performance=perf,
-                                                                            task_params=task_params,
-                                                                            )
+                tmp_performance, tmp_capacity = tasks.get_scores_per_alpha(task=task,
+                                                                           performance=perf,
+                                                                           task_params=task_params,
+                                                                           **kwargs
+                                                                           )
 
-                tmp_perf.append(np.column_stack((tmp_performance, tmp_capacity)))
+                tmp.append(np.column_stack((tmp_performance, tmp_capacity)))
 
 
-            tmp_df = pd.DataFrame(data=np.column_stack((alpha, np.dstack(tmp_perf).mean(axis=2))),
+            tmp_df = pd.DataFrame(data=np.column_stack((alpha, np.dstack(tmp).mean(axis=2))),
                                   columns=['alpha', 'performance', 'capacity'])
 
             tmp_df['class'] = clase
@@ -166,16 +168,16 @@ def avg_based_encoder(task, target, reservoir_states, class_labels, class_mappin
            avg_res_states.append(np.mean(res_states.squeeze()[:,nodes], axis=1))
 
        # get performance (R) across task parameters, task params and alpha values
-       perf, task_params, alpha = tasks.run_multiple_tasks(task=task,
-                                                           target=target,
-                                                           res_states=avg_res_states,
-                                                           )
+       perf, task_params, alpha = tasks.run_task(task=task,
+                                                 target=target,
+                                                 reservoir_states=avg_res_states,
+                                                )
 
        # get max capacity and performance per alpha value
-       performance, capacity = tasks.get_capacity_and_perf(task=task,
-                                                           performance=perf,
-                                                           task_params=task_params,
-                                                           )
+       performance, capacity = tasks.get_scores_per_alpha(task=task,
+                                                          performance=perf,
+                                                          task_params=task_params,
+                                                          )
 
        # create temporal dataframe
        tmp_df = pd.DataFrame(data=np.column_stack((alpha, performance, capacity)),
@@ -210,16 +212,16 @@ def avg_based_decoder(task, target, reservoir_states, class_labels, class_mappin
                avg_res_states.append(np.mean(res_states.squeeze()[:,nodes], axis=1))
 
            # get performance (R) across task parameters, task params and alpha values
-           perf, task_params, alpha = tasks.run_multiple_tasks(task=task,
-                                                               target=target,
-                                                               res_states=avg_res_states,
-                                                               )
+           perf, task_params, alpha = tasks.run_task(task=task,
+                                                     target=target,
+                                                     reservoir_states=avg_res_states,
+                                                     )
 
            # get max capacity and performance per alpha value
-           performance, capacity = tasks.get_capacity_and_perf(task=task,
-                                                               performance=perf,
-                                                               task_params=task_params,
-                                                               )
+           performance, capacity = tasks.get_scores_per_alpha(task=task,
+                                                              performance=perf,
+                                                              task_params=task_params,
+                                                              )
 
            # create temporal dataframe
            tmp_df = pd.DataFrame(data=np.column_stack((alpha, performance, capacity)),
@@ -282,16 +284,16 @@ def pca_based_encoder(task, target, reservoir_states, class_labels, class_mappin
                pca_res_states.append(pca_decomposition(res_states.squeeze()[:,nodes], **kwargs))
 
            # get performance (R) across task parameters, task params and alpha values
-           perf, task_params, alpha = tasks.run_multiple_tasks(task=task,
-                                                               target=target,
-                                                               res_states=pca_res_states,
-                                                               )
+           perf, task_params, alpha = tasks.run_task(task=task,
+                                                     target=target,
+                                                     reservoir_states=pca_res_states,
+                                                     )
 
            # get max capacity and performance per alpha value
-           performance, capacity = tasks.get_capacity_and_perf(task=task,
-                                                               performance=perf,
-                                                               task_params=task_params,
-                                                               )
+           performance, capacity = tasks.get_scores_per_alpha(task=task,
+                                                              performance=perf,
+                                                              task_params=task_params,
+                                                              )
 
            # create temporal dataframe
            tmp_df = pd.DataFrame(data=np.column_stack((alpha, performance, capacity)),
@@ -329,16 +331,16 @@ def pca_based_decoder(task, target, reservoir_states, class_labels, class_mappin
                pca_res_states.append(pca_decomposition(res_states.squeeze()[:,nodes], **kwargs))
 
            # get performance (R) across task parameters, task params and alpha values
-           perf, task_params, alpha = tasks.run_multiple_tasks(task=task,
-                                                               target=target,
-                                                               res_states=pca_res_states,
-                                                               )
+           perf, task_params, alpha = tasks.run_task(task=task,
+                                                     target=target,
+                                                     reservoir_states=pca_res_states,
+                                                     )
 
            # get max capacity and performance per alpha value
-           performance, capacity = tasks.get_capacity_and_perf(task=task,
-                                                               performance=perf,
-                                                               task_params=task_params,
-                                                               )
+           performance, capacity = tasks.get_scores_per_alpha(task=task,
+                                                              performance=perf,
+                                                              task_params=task_params,
+                                                              )
 
            # create temporal dataframe
            tmp_df = pd.DataFrame(data=np.column_stack((alpha, performance, capacity)),

@@ -1,18 +1,28 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Mar 12 10:10:14 2019
+
+@author: Estefany Suarez
+"""
+import os
 import numpy as np
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-from matplotlib.colors import ListedColormap
 import seaborn as sns
+
+from netneurotools import plotting
+from netneurotools import datasets
+
+import matplotlib.pyplot as plt
+from matplotlib.colors import (ListedColormap, Normalize)
+from mpl_toolkits.mplot3d import Axes3D
 
 COLORS = sns.color_palette("husl", 8)
 
 
-def brain_dots(coords, colors=None, size=None, title=None, view='superior'):
+def brain_dots(coords, size, values=None, cmap='viridis', view='superior', title=None, **kwargs):
 
     # z-score coordinates for better visualization
     coords = (coords-np.mean(coords, axis=0))/np.std(coords, axis=0)
 
-    if colors is None: colors = np.random.rand(len(coords))
     # colors=['#c6e1f5', '#9e519f']
     # cmap = sns.blend_palette(colors=colors,
     #                         n_colors=6,
@@ -20,23 +30,23 @@ def brain_dots(coords, colors=None, size=None, title=None, view='superior'):
 
     # if size is None: size = np.random.rand(len(coords))
 
-    size = 180
-
     fig = plt.figure(num=1, figsize=(2*.8*5,2*.8*4))#2*5.25,2*4))
     ax = plt.subplot(111, projection='3d')
 
-    ax.scatter(xs=coords[:,0],
-               ys=coords[:,1],
-               zs=coords[:,2],
-               cmap='viridis',
-               c=colors, #np.ones(len(coords)),
-               # facecolors='#e6e7e8',
-               s=size,
-               # linewidths=0.8,
-               # edgecolors='dimgrey', #'#414042',
-               alpha=0.5
-               )
+    mapp = ax.scatter(xs=coords[:,0],
+                      ys=coords[:,1],
+                      zs=coords[:,2],
+                      cmap=cmap,
+                      c=values, #np.ones(len(coords)),
+                      # facecolors='#e6e7e8',
+                      s=2000*(1/size),
+                      # linewidths=0.8,
+                      edgecolors='dimgrey', #'#414042',
+                      alpha=0.5,
+                      **kwargs
+                      )
 
+    plt.colorbar(mapp)
 
     # ax.set_title('XXXX', fontsize=10, loc=)
     ax.grid(False)
@@ -70,8 +80,11 @@ def brain_dots(coords, colors=None, size=None, title=None, view='superior'):
     plt.gca().patch.set_facecolor('white')
     sns.despine()
 
-    fig.savefig(fname='C:/Users/User/Desktop/poster/figures/' + title + '.eps', transparent=True, bbox_inches='tight', dpi=300)
-    fig.savefig(fname='C:/Users/User/Desktop/poster/figures/' + title + '.jpg', transparent=True, bbox_inches='tight', dpi=300)
+    # fig.savefig(fname='C:/Users/User/Desktop/poster/figures/' + title + '.eps', transparent=True, bbox_inches='tight', dpi=300)
+    # fig.savefig(fname='C:/Users/User/Desktop/poster/figures/' + title + '.jpg', transparent=True, bbox_inches='tight', dpi=300)
+
+    plt.show()
+    plt.close()
 
 
 def brain_subnetworks(coords, class_names, class_mapping, nodes, node_size, view='superior', ax=None, title=None, **kwargs):
@@ -149,6 +162,7 @@ def brain_subnetworks(coords, class_names, class_mapping, nodes, node_size, view
     fig.savefig(fname='C:/Users/User/Desktop/poster/figures/' + title + '.jpg', transparent=True, bbox_inches='tight', dpi=300)
     plt.show()
 
+
 def brain_networks(coords, class_names, class_mapping,  title=None):
     """
         Dot brain plots ... RSN brain plots
@@ -217,3 +231,31 @@ def brain_networks(coords, class_names, class_mapping,  title=None):
     fig.savefig(fname='C:/Users/User/Desktop/poster/figures/' + title + '.jpg', transparent=True, bbox_inches='tight', dpi=300)
 
     plt.show()
+
+
+def brain_surf(var_name, data, scale='scale500', cmap='R_Bu', cbar=True):
+
+    os.environ['SUBJECTS_DIR'] = ''
+    lh_annot = datasets.fetch_cammoun2012('surface')[scale][0]
+    rh_annot = datasets.fetch_cammoun2012('surface')[scale][1]
+
+    brain = plotting.plot_fsaverage(data=data,
+                                    lhannot=lh_annot,
+                                    rhannot=rh_annot,
+                                    colormap=cmap,
+                                    colorbar=cbar,
+                                    alpha=1.0,
+                                    views=['lat', 'med'],
+                                    # vmin=,
+                                    # vmax=,
+                                    # center=0.0
+                                    )
+
+    for i in range(2):
+        for j in range(2):
+               brain._figures[i][j].scene.parallel_projection = True
+               brain._figures[i][j].scene.parallel_projection = True
+
+#    brain.save_image(os.path.join(FIG_DIR,  var_name + '_surf_brain' + '.png'), mode='rgba')
+
+    return brain
