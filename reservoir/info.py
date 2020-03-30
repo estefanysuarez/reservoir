@@ -17,7 +17,7 @@ INSTALL_REQUIRES = [
     'seaborn>=0.8',
     'bctpy==0.5.0',
     'MDP==3.5',
-    'tqdm==4.28.1',
+    'tqdm==4.28.1'
 ]
 
 TESTS_REQUIRE = [
