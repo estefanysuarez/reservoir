@@ -22,6 +22,9 @@ def regress(X, y, regress=True):
         return y/X
 
 
+def minmax_scale(x):
+    return (x-np.min(x))/(np.max(x)-np.min(x))
+
 def log_minmax_scale(x):
     return np.log(((x-np.min(x))/(np.max(x)-np.min(x))+1))
 

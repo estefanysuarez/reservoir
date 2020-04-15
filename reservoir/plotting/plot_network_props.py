@@ -112,14 +112,85 @@ def barplot_net_props_across_classes(df_net_props, class_mapping, include_proper
 
 def pairplot_net_props(df_net_props):
 
-    sns.set(style="ticks")
+    sns.set(style="ticks", font_scale=2.0)
+    fig = plt.figure(num=1, figsize=(10,10))
+    ax = plt.subplot(111)
+
     sns.pairplot(df_net_props,
                  hue="rsn",
                  hue_order=['VIS', 'SM', 'DA', 'VA', 'LIM', 'FP', 'DMN'],
-                 palette=sns.color_palette("husl", 8)[:-1],
+                 palette=COLORS[:-1],
+                 ax=ax
                  )
+
+    sns.despine(offset=10, trim=True)
+    ax.set_title('origin: ' + clase)
+    # fig.savefig(fname='C:/Users/User/Desktop/poster/figures/barplot_effect_size.eps', transparent=True, bbox_inches='tight', dpi=300)
+    # fig.savefig(fname='C:/Users/User/Desktop/poster/figures/barplot_effect_size.jpg', transparent=True, bbox_inches='tight', dpi=300)
     plt.show()
     plt.close()
+
+
+# --------------------------------------------------------------------------------------------------------------------
+# EXPLORING BINARY CONNECTIVITY PROFILE
+# ----------------------------------------------------------------------------------------------------------------------
+def get_conn_profiles(conn_wei, class_labels, class_mapping):
+
+    conn_bin = conn_wei.copy().astype(bool).astype(int)
+
+    conn_profiles = []
+    for i, clase in enumerate(class_labels):
+
+        idx_class = np.where(class_mapping == clase)
+        conn_profile = np.sum(conn_bin[idx_class], axis=0)
+
+        conns_class = []
+        for node in range(len(conn_bin)):
+            conns_class.extend(np.repeat(class_mapping[node], conn_profile[node]))
+
+        targets, counts = np.unique(conns_class, return_counts=True)
+        df = pd.DataFrame(data = np.column_stack((targets, counts, 100*counts/np.sum(counts), 100*counts/(1015*1014))),
+                          columns = ['target', 'n_conns', 'local_percent', 'global_percent'],
+                          index = np.arange(len(class_labels))
+                          )
+
+        df['origin'] = clase
+        df['n_conns'] = df['n_conns'].astype(int)
+        df['local_percent'] = df['local_percent'].astype(float)
+        df['global_percent'] = df['global_percent'].astype(float)
+        df = df.reindex(columns=['origin', 'target', 'n_conns', 'local_percent', 'global_percent'])
+
+        conn_profiles.append(df)
+
+    return pd.concat(conn_profiles)
+
+
+def barplot_conn_profile(df_conn_profile, class_list=None):
+
+    if class_list is None: class_list = sort_class_labels(np.unique(df_conn_profile['target']))
+
+    for i, clase in enumerate(class_list):
+
+        sns.set(style="ticks", font_scale=2.0)
+        fig = plt.figure(num=i, figsize=(10,10))
+
+        tmp_df = df_conn_profile.loc[df_conn_profile['origin'] == clase, :]
+
+        ax = plt.subplot(111)
+        sns.barplot(x='target',
+                    y='local_percent',
+                    data=tmp_df,
+                    order=sort_class_labels(np.unique(df_conn_profile['target'])),
+                    palette=COLORS,
+                    )
+
+        ax.set_ylim(0, 60)
+        sns.despine(offset=10, trim=True)
+        ax.set_title('origin: ' + clase)
+        # fig.savefig(fname='C:/Users/User/Desktop/poster/figures/barplot_effect_size.eps', transparent=True, bbox_inches='tight', dpi=300)
+        # fig.savefig(fname='C:/Users/User/Desktop/poster/figures/barplot_effect_size.jpg', transparent=True, bbox_inches='tight', dpi=300)
+        plt.show()
+        plt.close()
 
 
 # --------------------------------------------------------------------------------------------------------------------
