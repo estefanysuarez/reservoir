@@ -7,192 +7,203 @@ Created on Tue Mar 12 10:10:14 2019
 import os
 import scipy.io as sio
 import numpy as np
+import pandas as pd
+
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.colors import ListedColormap
-from netneurotools import plotting
 import seaborn as sns
-from sklearn.preprocessing import MinMaxScaler
 
-from ..tasks import (tasks, utils)
+from sklearn.preprocessing import MinMaxScaler
+from netneurotools import plotting
+
+from . import (plot_tasks)
+from .. import utils
 
 #%matplotlib qt
-
 COLORS = sns.color_palette("husl", 8)
 
-color_cmap_div = np.loadtxt("C:/Users/User/Desktop/cmap.dat")
+color_cmap_div = np.loadtxt("C:/Users/User/Desktop/rc_tmp/cmap.dat")
 cmap_div = utils.array2cmap(color_cmap_div)
 
 
-def dynamics_and_performance(task, factor, coords, res_states, target, class_names, class_mapping, t_ini=0, t_end=100, nodes=None, alpha=None, center=False):
+# --------------------------------------------------------------------------------------------------------------------
+# TIMESERIES
+# ----------------------------------------------------------------------------------------------------------------------
+def lineplot_timeseries(signal, class_mapping, timepoints=None, nodes=None, classes=None, demean=True, scale=False, vmin=-1, vmax=1, **kwargs):
 
-    sns.set(style="ticks")
+    # remove mean across nodes from signal, per timepoint
+    if demean: signal = (signal-signal.mean(axis=1)[:,np.newaxis])
 
+    # create dataframe
+    n_nodes = signal.shape[-1]
 
-    fig = plt.figure(num=1, figsize=(0.7*8*4,0.7*8))
+    tmp_class_mapping = np.repeat(class_mapping.copy()[np.newaxis,:],
+                                  len(signal),
+                                  axis=0).flatten()
 
-    # brain plot
-    ax1 = plt.subplot(141, projection='3d')
-    if alpha is not None: title =  r'$\alpha$' + ' = ' + str(alpha)
-    brain_dots(coords=coords,
-               class_names=class_names,
-               class_mapping=class_mapping,
-               nodes=nodes,
-               view='superior',
-               title=title,
-               ax=ax1
-               )
+    node_id = np.repeat(np.arange(n_nodes)[np.newaxis,:],
+                        len(signal),
+                        axis=0).flatten()
 
-    # plot time series
-    ax2 = plt.subplot(142)
-    timeseries(task=task,
-               factor=factor,
-               res_states=res_states.copy(),
-               class_names=class_names,
-               class_mapping=class_mapping.copy(),
-               t_ini=t_ini,
-               t_end=t_end,
-               nodes=nodes,
-               center=center,
-               ax=ax2
-               )
+    timepoint = np.repeat(np.arange(len(signal))[:,np.newaxis],
+                          n_nodes,
+                          axis=1).flatten()
 
-    # plot correlation matrix
-    ax3 = plt.subplot(143)
-    correlation(task=task,
-                factor=factor,
-                res_states=res_states.copy(),
-                class_names=class_names,
-                class_mapping=class_mapping.copy(),
-                t_ini=t_ini,
-                t_end=t_end,
-                nodes=nodes,
-                center=center,
-                ax=ax3
-                )
+    signal = signal.copy().flatten()
 
-    # plot task performance
-    ax4 = plt.subplot(144)
-    perf, _ = tasks.run_single_tasks(task=task,
-                                     target=target,
-                                     res_states=res_states.copy(),
-                                     readout_nodes=nodes,
-                                     ax=ax4
-                                     )
+    df = pd.DataFrame(data = np.column_stack((node_id, timepoint, signal, tmp_class_mapping)),
+                        columns = ['node_id', 'timepoint', 'signal', 'class'],
+                        )
+    df['node_id'] = df['node_id'].astype(int)
+    df['timepoint'] = df['timepoint'].astype(int)
+    df['signal'] = df['signal'].astype(float)
+    hue_order = plot_tasks.sort_class_labels(np.unique(df['class']))
 
-    ax4.set_xlabel('target')
-    ax4.set_ylabel('predicted', labelpad=0.1)
-    ax4.set()
+    # select timepoints
+    if timepoints is not None: df = df.loc[df['timepoint'].isin(timepoints), :]
 
-    # plt.legend(frameon=False, loc=8, ncol=3) #fontsize=17, ncol=2, loc=9
-    sns.despine(trim=True) #offset=10,
+    # select nodes
+    if nodes is not None: df = df.loc[df['node_id'].isin(nodes), :]
 
-    # plt.subplots_adjust(left=0.1, right=1, top=1, bottom=0, wspace=0.3) #
-    # plt.show()
-    # plt.close()
+    # select classes
+    if classes is not None: df = df.loc[df['class'].isin(classes), :]
 
-    return perf
+    # scale signal values between vmin and vmax
+    if scale: df['signal'] = (((df['signal']-df['signal'].min())/(df['signal'].max()-df['signal'].min()))*(vmax-vmin)) + vmin
+
+    # plot
+    sns.set(style="ticks", font_scale=2.0)
+    fig = plt.figure(num=1, figsize=(20,5))
+
+    ax = plt.subplot(111)
+    sns.lineplot(x="timepoint",
+                 y="signal",
+                 data=df,
+                 hue="class",
+                 hue_order=hue_order, #plot_tasks.sort_class_labels(np.unique(df['class'])),
+                 palette=COLORS[:-1], # palette,
+                 ax=ax,
+                 **kwargs
+                 )
 
 
-def timeseries_and_correlation(task, factor, res_states, class_names, class_mapping, t_ini=0, t_end=100, nodes=None, center=False):
+    # ax.legend(fontsize=15, frameon=True, ncol=1, loc='upper right')
+    ax.get_legend().remove()
 
-    fig = plt.figure(num=1, figsize=(0.7*8*2,0.7*7))
+    ax.set_yticks([])
+    ax.set_yticklabels('')
+    # ax.set_ylabel('')
 
-    ax1 = plt.subplot(121)
-    timeseries(task, factor, res_states, class_names, class_mapping, t_ini=0, t_end=100, nodes=None, center=False, ax=ax1)
-
-    ax2 = plt.subplot(122)
-    correlation(task, factor, res_states, class_names, class_mapping, t_ini=0, t_end=100, nodes=None, center=False, ax=ax2)
-
+    sns.despine(offset=10, trim=True, left=True)
+    # fig.savefig(fname='C:/Users/User/Desktop/poster/figures/line_coding_across_alpha.eps', transparent=True, bbox_inches='tight', dpi=300)
+    # fig.savefig(fname='C:/Users/User/Desktop/poster/figures/line_coding_across_alpha.jpg', transparent=True, bbox_inches='tight', dpi=300)
     plt.show()
+    plt.close()
 
 
-def correlation(task, factor, res_states, class_names, class_mapping, t_ini=0, t_end=100, nodes=None, center=False, ax=None):
+# def lineplot_timeseries_per_class(signal, class_mapping, timepoints=None, nodes=None, classes=None, demean=True, scale=False, vmin=-1, vmax=1, **kwargs):
+#
+#     # remove mean across nodes from signal, per timepoint
+#     if demean: signal = (signal-signal.mean(axis=1)[:,np.newaxis])
+#
+#     # create dataframe
+#     n_nodes = signal.shape[-1]
+#
+#     tmp_class_mapping = np.repeat(class_mapping.copy()[np.newaxis,:],
+#                                   len(signal),
+#                                   axis=0).flatten()
+#
+#     node_id = np.repeat(np.arange(n_nodes)[np.newaxis,:],
+#                         len(signal),
+#                         axis=0).flatten()
+#
+#     timepoint = np.repeat(np.arange(len(signal))[:,np.newaxis],
+#                           n_nodes,
+#                           axis=1).flatten()
+#
+#     signal = signal.copy().flatten()
+#
+#     df = pd.DataFrame(data = np.column_stack((node_id, timepoint, signal, tmp_class_mapping)),
+#                         columns = ['node_id', 'timepoint', 'signal', 'class'],
+#                         )
+#     df['node_id'] = df['node_id'].astype(int)
+#     df['timepoint'] = df['timepoint'].astype(int)
+#     df['signal'] = df['signal'].astype(float)
+#     hue_order = plot_tasks.sort_class_labels(np.unique(df['class']))
+#
+#     # select timepoints
+#     if timepoints is not None: df = df.loc[df['timepoint'].isin(timepoints), :]
+#
+#     # select nodes
+#     if nodes is not None: df = df.loc[df['node_id'].isin(nodes), :]
+#
+#     # select classes
+#     if classes is not None: df = df.loc[df['class'].isin(classes), :]
+#
+#     # scale signal values between vmin and vmax
+#     if scale: df['signal'] = (((df['signal']-df['signal'].min())/(df['signal'].max()-df['signal'].min()))*(vmax-vmin)) + vmin
+#
+#     # plot
+#     class_labels = plot_tasks.sort_class_labels(np.unique(df['class']))
+#
+#     sns.set(style="ticks", font_scale=2.0)
+#     fig = plt.figure(num=1, figsize=(18,8*len(class_labels)))
+#
+#     for i, clase in enumerate(class_labels):
+#
+#         tmp_df = df.loc[df['class']==clase, :]
+#
+#         ax = plt.subplot(len(class_labels), 1, i+1)
+#         sns.lineplot(x="timepoint",
+#                      y="signal",
+#                      data=tmp_df,
+#                      hue="class",
+#                      hue_order=hue_order,
+#                      palette=COLORS[:-1],
+#                      ax=ax,
+#                      **kwargs
+#                      )
+#
+#         # ax.legend(fontsize=15, frameon=True, ncol=1, loc='upper right')
+#         ax.get_legend().remove()
+#         sns.despine(offset=10, trim=True)
+#
+#     # fig.savefig(fname='C:/Users/User/Desktop/poster/figures/line_coding_across_alpha.eps', transparent=True, bbox_inches='tight', dpi=300)
+#     # fig.savefig(fname='C:/Users/User/Desktop/poster/figures/line_coding_across_alpha.jpg', transparent=True, bbox_inches='tight', dpi=300)
+#
+#     plt.show()
+#     plt.close()
+#
+#
 
-    # convert mapping from string to integer
-    class_mapping = np.array([np.where(class_names == mapp)[0][0] for mapp in class_mapping]).astype(int)
-
-    if center: res_states = res_states.copy()-res_states.mean(axis=1)[:,np.newaxis]
-    if nodes is not None:
-        res_states  = res_states[:, nodes]
-        class_mapping = class_mapping[nodes]
-        class_names = [class_names[mapp] for mapp in np.sort(np.unique(class_mapping))]
-        dict_class_mapping = {mapp:idx for (idx, mapp) in enumerate(np.unique(class_mapping))}
-        class_mapping = np.array([dict_class_mapping[mapp] for mapp in class_mapping]).astype(int)
-
-    t_ini = int(np.percentile(np.arange(len(res_states)), t_ini))
-    t_end = int(np.percentile(np.arange(len(res_states)), t_end))
-    res_states = res_states[t_ini:t_end]
-
-    corr_matrix = np.corrcoef(res_states, rowvar=False)
-
-    if ax is None:
-        fig = plt.figure(num=3, figsize=(7,5))
-        ax = plt.subplot(111)
-
-    plotting.plot_mod_heatmap(data=corr_matrix,
-                              communities=class_mapping-np.min(class_mapping),
-                              xlabels=class_names,
-                              ylabels=class_names,
-                              cmap=cmap_div, #'RdBu_r',
-                              vmin=-1.0,
-                              vmax=1.0,
-                              # cbar=False,
-                              # center=0.0,
-                              ax=ax
-                              )
-
-    plt.title(task + ' - FC - factor: ' + str(factor), fontsize=15)
-    sns.despine(offset=10, trim=True)
-    plt.tight_layout()
-    if ax is None: plt.show()
+# def recurrenceplot_timeseries(signal, class_mapping, timepoints=None, nodes=None, classes=None, demean=True, scale=False, vmin=-1, vmax=1, **kwargs):
+#
+#     # remove mean across nodes from signal, per timepoint
+#     if demean: signal = (signal-signal.mean(axis=1)[:,np.newaxis])
+#
+#     # select timepoints
+#     if timepoints is not None: signal = signal[timepoints, :]
+#
+#     # select nodes
+#     if nodes is not None: signal = signal[:, nodes]
+#
+#     # select classes
+#     if classes is not None:
+#
+#         signal = signal[:, np.where()]
+#
+#     # scale signal values between vmin and vmax
+#     if scale: df['signal'] = (((df['signal']-df['signal'].min())/(df['signal'].max()-df['signal'].min()))*(vmax-vmin)) + vmin
+#
+#
 
 
-def timeseries(num_fig, res_states, class_names, class_mapping, t_ini =0, t_end=100, nodes=None, center=False, ax=None, title=None, task=None, factor=None):
-
-    if center:
-        res_states = res_states.copy()-res_states.mean(axis=1)[:,np.newaxis]
-        scaler = MinMaxScaler(feature_range=(-1,1))
-        res_states = scaler.fit_transform(res_states).squeeze()
-
-    if nodes is not None:
-        res_states  = res_states[:,nodes].squeeze()
-        class_mapping = class_mapping[nodes]
-
-    t_ini = int(np.percentile(np.arange(len(res_states)), t_ini))
-    t_end = int(np.percentile(np.arange(len(res_states)), t_end))
-    res_states = res_states[t_ini:t_end]
-
-    sns.set(style="ticks")
-
-    if ax is None:
-        fig = plt.figure(num=num_fig, figsize=(8,3))
-        ax = plt.subplot(111)
-
-    #-----------------------------------------------
-    l1 = ax.plot(np.arange(t_ini, t_end), res_states, alpha=0.8)
-
-    for idx, line in enumerate(l1):
-        line.set_color(COLORS[np.where(class_names == class_mapping[idx])[0][0]])
 
 
-    ax.set_ylim(-1,1)
-    # ax.get_legend().remove()
-    # ax.set_ylabel('signal')
 
-    # ax.set_xticklabels(labels=np.arange(t_ini, t_end))
-    # ax.set_xlabel('time steps')
 
-    if (task is not None) and (factor is not None): plt.title(task + ' - res_states - factor: ' + str(factor), fontsize=15)
 
-    sns.despine(offset=10, trim=True)
-    plt.tight_layout()
-
-    if title is not None:
-        fig.savefig(fname='C:/Users/User/Desktop/poster/figures/' + title + '.jpg', transparent=True, bbox_inches='tight', dpi=300)
-        fig.savefig(fname='C:/Users/User/Desktop/poster/figures/' + title + '.eps', transparent=True, bbox_inches='tight', dpi=300)
-
-    # if ax is None: plt.show()
 
 
 def spreading(coords, res_states, input_nodes=None, apply_thr=True, thr=0.1):

@@ -180,7 +180,7 @@ def brain_networks(coords, class_names, class_mapping,  title=None):
     for clase in class_names:
 
         # vector of colors
-        c= colors[np.where(class_mapping == clase)[0]]
+        c = colors[np.where(class_mapping == clase)[0]]
         s = 200
 
         # lateral view - lh
@@ -227,8 +227,8 @@ def brain_networks(coords, class_names, class_mapping,  title=None):
     sns.despine()
     fig.tight_layout()
 
-    fig.savefig(fname='C:/Users/User/Desktop/poster/figures/' + title + '.eps', transparent=True, bbox_inches='tight', dpi=300)
-    fig.savefig(fname='C:/Users/User/Desktop/poster/figures/' + title + '.jpg', transparent=True, bbox_inches='tight', dpi=300)
+    fig.savefig(fname='C:/Users/User/Desktop/' + title + '.eps', transparent=True, bbox_inches='tight', dpi=300)
+    # fig.savefig(fname='C:/Users/User/Desktop/poster/figures/' + title + '.jpg', transparent=True, bbox_inches='tight', dpi=300)
 
     plt.show()
 

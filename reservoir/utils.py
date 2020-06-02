@@ -7,6 +7,7 @@ Created on Tue Mar 12 10:10:14 2019
 
 import numpy as np
 from sklearn.linear_model import LinearRegression
+from matplotlib.colors import LinearSegmentedColormap
 
 #%% --------------------------------------------------------------------------------------------------------------------
 # DATA STATISTICS
@@ -22,8 +23,9 @@ def regress(X, y, regress=True):
         return y/X
 
 
-def minmax_scale(x):
-    return (x-np.min(x))/(np.max(x)-np.min(x))
+def minmax_scale(x, vmin=0, vmax=1):
+    return ((x-np.min(x))/(np.max(x)-np.min(x)))*(vmax-vmin) + vmin
+
 
 def log_minmax_scale(x):
     return np.log(((x-np.min(x))/(np.max(x)-np.min(x))+1))
@@ -44,4 +46,4 @@ def array2cmap(X):
     gr = tuple([(r[i], gr[i], gr[i]) for i in range(2 * N)])
     bl = tuple([(r[i], bl[i], bl[i]) for i in range(2 * N)])
     cdict = {'red': rd, 'green': gr, 'blue': bl}
-    return mcolors.LinearSegmentedColormap('my_colormap', cdict, N)
+    return LinearSegmentedColormap('my_colormap', cdict, N)
