@@ -11,7 +11,7 @@ from ..tasks import io
 #%% --------------------------------------------------------------------------------------------------------------------
 # NETWORK SIMULATION
 # ----------------------------------------------------------------------------------------------------------------------
-def run_sim(w, w_in, stimulus, ic=None):
+def sim(w, w_in, stimulus, ic=None):
 
     timesteps = range(1, len(stimulus))
     N = len(w)
@@ -27,7 +27,7 @@ def run_sim(w, w_in, stimulus, ic=None):
     return x, synap_input, timesteps
 
 
-def run_multiple_sim(conn, input_nodes, inputs, factor, alphas=None, **kwargs):
+def run_sim(conn, input_nodes, inputs, factor, alphas=None, **kwargs):
     """
         Given a connectivity matrix, an input sequence, and a set of input
         nodes, this method simulates the reservoir network for multiple values
@@ -47,9 +47,10 @@ def run_multiple_sim(conn, input_nodes, inputs, factor, alphas=None, **kwargs):
     res_states = []
     for alpha in alphas:
         new_conn = alpha * conn.copy()
-        x, _, _ = run_sim(w = new_conn,
-                          w_in = conn_input,
-                          stimulus=inputs)
+        x, _, _ = sim(w = new_conn,
+                      w_in = conn_input,
+                      stimulus=inputs
+                      )
 
         res_states.append(x.astype(np.float32))
 
