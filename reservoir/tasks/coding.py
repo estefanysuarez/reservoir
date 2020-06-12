@@ -70,6 +70,7 @@ def basic_encoder(task, target, reservoir_states, output_nodes=None, cluster_lab
 
             # get set of output nodes
             output_nodes = np.where(cluster_mapp == cluster)[0]
+            print
 
             # create temporal dataframe
             tmp_df = coding(task, target, reservoir_states, output_nodes, **kwargs)
@@ -122,7 +123,7 @@ def basic_decoder(task, target, reservoir_states, output_nodes=None, cluster_lab
 
                 #build distribution of scores
                 tmp = []
-                for i in range(3):
+                for i in range(100):
 
                     print('-------------------' + str(i) + '--------------------')
 
@@ -133,7 +134,7 @@ def basic_decoder(task, target, reservoir_states, output_nodes=None, cluster_lab
                         output_nodes.extend(np.random.choice(np.where(tmp_set_mapp)[0], num_nodes, replace=False))
 
                     tmp_df = coding(task, target, reservoir_states, output_nodes, **kwargs)
-                    tmp.append(tmp_df.values[:, 1:])
+                    tmp.append(tmp_df.values)
 
                 tmp_df = pd.DataFrame(data=np.dstack(tmp).mean(axis=2),
                                       columns=['alpha', 'performance', 'capacity', 'n_nodes']

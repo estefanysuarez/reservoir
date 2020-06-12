@@ -37,7 +37,6 @@ def construct_network_model(conn, type, **kwargs):
 #%% --------------------------------------------------------------------------------------------------------------------
 # NULL NETWORK MODELS
 # ----------------------------------------------------------------------------------------------------------------------
-
 def watts_and_strogatz(conn, p_conn=[0.1]):
 
     # scale conn data
@@ -70,6 +69,7 @@ def watts_and_strogatz(conn, p_conn=[0.1]):
     deg = int(np.mean(np.sum(conn_bin, axis=0)))
     N = len(conn_bin)
 
+    # create networks
     networks = []
     for p in p_conn:
 
