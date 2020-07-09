@@ -375,6 +375,21 @@ def get_scores_per_alpha(task, performance, task_params, thres=0.9, normalize=Fa
     return perf_per_alpha, cap_per_alpha
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # def run_pattrn_recog(target, reservoir_states, time_lens, normalize=False, **kwargs):
 #
 #     if normalize: reservoir_states = (reservoir_states - reservoir_states.mean(axis=1)[:,np.newaxis])

@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import (MultipleLocator, FormatStrFormatter, AutoMinorLocator)
 import seaborn as sns
 
+from . import plotting
 from ..tasks import tasks
 
 
@@ -27,23 +28,65 @@ DECODE_COL = '#6CC8BA'
 # --------------------------------------------------------------------------------------------------------------------
 # GENERAL
 # ----------------------------------------------------------------------------------------------------------------------
-def sort_class_labels(class_labels):
+def concat_results(path, class_name, n_samples=1000, scores2return=None, include_alpha=None):
 
-    if 'subctx' in class_labels:
-        rsn_labels = ['VIS', 'SM', 'DA', 'VA', 'LIM', 'FP', 'DMN', 'subctx']
-        vEc_labels = ['PSS', 'PS', 'PM', 'LIM', 'AC1', 'IC', 'AC2', 'subctx']
-    else:
-        rsn_labels = ['VIS', 'SM', 'DA', 'VA', 'LIM', 'FP', 'DMN']
-        vEc_labels = ['PSS', 'PS', 'PM', 'LIM', 'AC1', 'IC', 'AC2']
+    df_encoding = []
+    df_decoding = []
+    df_scores   = []
+    for sample_id in range(n_samples):
 
-    if class_labels.all() in rsn_labels:
-        return np.array([clase for clase in rsn_labels if clase in class_labels])
+        print('\n sample_id:  ' + str(sample_id))
+        succes_sample = True
 
-    elif class_labels.all() in vEc_labels:
-        return np.array([clase for clase in vEc_labels if clase in class_labels])
+        try:
+            encod_scores = pd.read_csv(os.path.join(path, class_name + '_encoding_score_' + str(sample_id) + '.csv')).reset_index(drop=True)
+            encod_scores['coding'] = 'encoding'
+            encod_scores['sample_id'] = sample_id
+            if 'cluster' in encod_scores.columns: encod_scores.rename(columns={'cluster':'class'}, inplace=True, errors='raise')
 
-    else:
-        return class_labels
+            decod_scores = pd.read_csv(os.path.join(path, class_name + '_decoding_score_' + str(sample_id) + '.csv')).reset_index(drop=True)
+            decod_scores['coding'] = 'decoding'
+            decod_scores['sample_id'] = sample_id
+            if 'cluster' in decod_scores.columns: decod_scores.rename(columns={'cluster': 'class'}, inplace=True, errors='raise')
+
+            if 'scores' in scores2return:
+                scores = get_coding_scores_per_class(encod_scores.copy(),
+                                                     decod_scores.copy(),
+                                                     include_alpha=include_alpha,
+                                                     )
+                scores['sample_id'] = sample_id
+
+        except:
+            succes_sample = False
+            print('Could not find sample No.  ' + str(sample_id))
+
+            pass
+
+        if succes_sample:
+
+            if 'encoding' in scores2return:
+                df_encoding.append(encod_scores[['sample_id', 'class', 'alpha', 'coding', 'performance', 'capacity', 'n_nodes']])
+
+            if 'decoding' in scores2return:
+                df_decoding.append(decod_scores[['sample_id', 'class', 'alpha', 'coding', 'performance', 'capacity', 'n_nodes']])
+
+            if 'scores' in scores2return:
+                df_scores.append(scores[['sample_id', 'class', 'coding', 'performance', 'capacity', 'n_nodes']])
+
+    res_dict = {}
+    if 'encoding' in scores2return:
+        df_encoding = pd.concat(df_encoding).reset_index(drop=True)
+        res_dict['encoding'] = df_encoding
+
+    if 'decoding' in scores2return:
+        df_decoding = pd.concat(df_decoding).reset_index(drop=True)
+        res_dict['decoding'] = df_decoding
+
+    if 'scores' in scores2return:
+        df_scores = pd.concat(df_scores).reset_index(drop=True)
+        res_dict['scores'] = df_scores
+
+    return res_dict
 
 
 def get_coding_scores_per_class(df_encoding, df_decoding, include_alpha=None):
@@ -93,76 +136,268 @@ def get_coding_scores_per_class(df_encoding, df_decoding, include_alpha=None):
     return df_scores
 
 
-def merge_coding_scores(df_scores, score):
+def merge_scores(df_scores):
 
-    if 'sample_id' in df_scores.columns:
+    df_encoding_scores = df_scores.loc[df_scores['coding'] == 'encoding', :] \
+                         .rename(columns={'performance':'encoding_performance', 'capacity':'encoding_capacity'}).reset_index(drop=True)
 
-        if ('rsn' in df_scores.columns) and ('cyt' in df_scores.columns):
-            df_encoding_scores = df_scores.loc[df_scores['coding'] == 'encoding', ['sample_id', 'class', 'n_nodes', 'rsn', 'cyt', score]]\
-                                 .rename(columns={score:'encoding_' + score})
-            df_encoding_scores.fillna({'encoding_' + score:np.nanmean(df_encoding_scores['encoding_' + score])}, inplace=True)
+    df_encoding_scores.fillna({'encoding_performance':np.nanmean(df_encoding_scores['encoding_performance']), \
+                               'encoding_capacity':np.nanmean(df_encoding_scores['encoding_capacity'])}, \
+                                inplace=True)
 
-            df_decoding_scores = df_scores.loc[df_scores['coding'] == 'decoding', ['sample_id', 'class', 'n_nodes', 'rsn', 'cyt', score]]\
-                                 .rename(columns={score:'decoding_' + score})
-            df_decoding_scores.fillna({'decoding_' + score:np.nanmean(df_decoding_scores['decoding_' + score])}, inplace=True)
+    df_decoding_scores = df_scores.loc[df_scores['coding'] == 'decoding', :] \
+                         .rename(columns={'performance':'decoding_performance', 'capacity':'decoding_capacity'}).reset_index(drop=True)
 
-            new_df_scores = pd.merge(df_encoding_scores, df_decoding_scores, on=['sample_id', 'class', 'n_nodes', 'rsn', 'cyt'])
+    df_decoding_scores.fillna({'decoding_performance':np.nanmean(df_decoding_scores['decoding_performance']), \
+                               'decoding_capacity':np.nanmean(df_decoding_scores['decoding_capacity'])}, \
+                               inplace=True)
 
-        else:
-            # get encoding - decoding scores
-            df_encoding_scores = df_scores.loc[df_scores['coding'] == 'encoding', ['sample_id', 'class', 'n_nodes', score]]\
-                                .rename(columns={score:'encoding_' + score})
-            df_encoding_scores.fillna({'encoding_' + score:np.nanmean(df_encoding_scores['encoding_' + score])}, inplace=True)
 
-            df_decoding_scores = df_scores.loc[df_scores['coding'] == 'decoding', ['sample_id', 'class', 'n_nodes', score]]\
-                                .rename(columns={score:'decoding_' + score})
-            df_decoding_scores.fillna({'decoding_' + score:np.nanmean(df_decoding_scores['decoding_' + score])}, inplace=True)
+    merge_columns   = list(np.intersect1d(df_encoding_scores.columns, df_decoding_scores.columns))
+    df_merge_scores = pd.merge(df_encoding_scores, df_decoding_scores, on=merge_columns, left_index=True, right_index=True).reset_index(drop=True)
+    df_merge_scores.drop(columns={'coding'})
 
-            new_df_scores = pd.merge(df_encoding_scores, df_decoding_scores, on=['sample_id', 'class', 'n_nodes'])
+    df_merge_scores['coding_performance'] = (df_merge_scores['encoding_performance'] - df_merge_scores['decoding_performance']).astype(float)
+    df_merge_scores['coding_capacity']    = (df_merge_scores['encoding_capacity']   - df_merge_scores['decoding_capacity']).astype(float)
+
+    df_merge_scores = df_merge_scores[['sample_id', 'class',
+                                       'encoding_performance', 'decoding_performance', 'coding_performance', \
+                                       'encoding_capacity', 'decoding_capacity', 'coding_capacity', \
+                                       'n_nodes', 'analysis']]
+
+    return df_merge_scores
+
+
+def sort_class_labels(class_labels):
+
+    if 'subctx' in class_labels:
+        rsn_labels = ['VIS', 'SM', 'DA', 'VA', 'LIM', 'FP', 'DMN', 'subctx']
+        vEc_labels = ['PSS', 'PS', 'PM', 'LIM', 'AC1', 'IC', 'AC2', 'subctx']
+    else:
+        rsn_labels = ['VIS', 'SM', 'DA', 'VA', 'LIM', 'FP', 'DMN']
+        vEc_labels = ['PSS', 'PS', 'PM', 'LIM', 'AC1', 'IC', 'AC2']
+
+    if class_labels.all() in rsn_labels:
+        return np.array([clase for clase in rsn_labels if clase in class_labels])
+
+    elif class_labels.all() in vEc_labels:
+        return np.array([clase for clase in vEc_labels if clase in class_labels])
 
     else:
-        if ('rsn' in df_scores.columns) and ('cyt' in df_scores.columns):
-            df_encoding_scores = df_scores.loc[df_scores['coding'] == 'encoding', ['class',  'n_nodes', 'rsn', 'cyt', score]]\
-                                 .rename(columns={score:'encoding_' + score})
-            df_encoding_scores.fillna({'encoding_' + score:np.nanmean(df_encoding_scores['encoding_' + score])}, inplace=True)
+        return class_labels
 
-            df_decoding_scores = df_scores.loc[df_scores['coding'] == 'decoding', ['class', 'n_nodes', 'rsn', 'cyt', score]]\
-                                 .rename(columns={score:'decoding_' + score})
-            df_decoding_scores.fillna({'decoding_' + score:np.nanmean(df_decoding_scores['decoding_' + score])}, inplace=True)
 
-            new_df_scores = pd.merge(df_encoding_scores, df_decoding_scores, on=['class', 'n_nodes', 'rsn', 'cyt'])
+# --------------------------------------------------------------------------------------------------------------------
+# PERFORMANCE ACROSS ALPHAS
+# ----------------------------------------------------------------------------------------------------------------------
+def lineplot_scores_vs_alpha(df_encoding, df_decoding, score, include_alpha=None, scale=True, minmax=None, **kwargs):
 
+    if include_alpha is not None:
+        df_encoding = df_encoding.loc[df_encoding['alpha'].isin(include_alpha), :].reset_index(drop=True)
+        df_decoding = df_decoding.loc[df_decoding['alpha'].isin(include_alpha), :].reset_index(drop=True)
+
+    if scale:
+        if minmax is None:
+            min_score = min(np.min(df_encoding[score]), np.min(df_decoding[score]))
+            max_score = max(np.max(df_encoding[score]), np.max(df_decoding[score]))
         else:
-            # get encoding - decoding scores
-            df_encoding_scores = df_scores.loc[df_scores['coding'] == 'encoding', ['class', 'n_nodes', score]]\
-                                .rename(columns={score:'encoding_' + score})
-            df_encoding_scores.fillna({'encoding_' + score:np.nanmean(df_encoding_scores['encoding_' + score])}, inplace=True)
+            min_score = minmax[0]
+            max_score = minmax[1]
 
-            df_decoding_scores = df_scores.loc[df_scores['coding'] == 'decoding', ['class', 'n_nodes', score]]\
-                                .rename(columns={score:'decoding_' + score})
-            df_decoding_scores.fillna({'decoding_' + score:np.nanmean(df_decoding_scores['decoding_' + score])}, inplace=True)
+        df_encoding[score] = (df_encoding[score]-min_score)/(max_score-min_score)
+        df_decoding[score] = (df_decoding[score]-min_score)/(max_score-min_score)
 
-            new_df_scores = pd.merge(df_encoding_scores, df_decoding_scores, on=['class', 'n_nodes'])
+    # ------------------------------ AUC ---------------------------------------
+    auc_enc = []
+    auc_dec = []
+    try:
+        for clase in sort_class_labels(np.unique(df_encoding['class'])):
 
-    new_df_scores['coding_' + score] = new_df_scores['encoding_' + score] - new_df_scores['decoding_' + score]
-    new_df_scores['coding_' + score] = new_df_scores['coding_' + score].astype(float)
+                # print(' clase: ' + clase)
+                tmp_df_enc = df_encoding.loc[df_encoding['class'] == clase, [score]][score]
+                # print('   auc_enc:  ' + str(auc(x=include_alpha, y=tmp_df_enc)))
+                auc_enc.append(auc(x=include_alpha, y=tmp_df_enc))
 
-    return new_df_scores
+                tmp_df_dec = df_decoding.loc[df_decoding['class'] == clase, [score]][score]
+                # print('   auc_dec:  ' + str(auc(x=include_alpha, y=tmp_df_dec)))
+                auc_dec.append(auc(x=include_alpha, y=tmp_df_dec))
+
+    except:
+        pass
+
+    if 'sample_id' in df_encoding.columns:
+        title_encoding = f'encoding {score}'
+        title_decoding = f'decoding {score}'
+    else:
+        auc_enc = np.sum(auc_enc)
+        auc_dec = np.sum(auc_dec)
+        title_encoding = f'encoding  {score} - AUC = {auc_enc}' # + str(np.sum(auc_enc))[:5]
+        title_decoding = f'decoding  {score} - AUC = {auc_dec}' # + str(np.sum(auc_dec))[:5]
+    # --------------------------------------------------------------------------
+
+    # ----------------------------------------------------
+    plotting.lineplot(x='alpha', y=score,
+                      df=df_encoding,
+                      palette=COLORS[:-1],
+                      hue='class',
+                      hue_order=sort_class_labels(np.unique(df_encoding['class'])),
+                      title=title_encoding,
+                      # ci='sd',
+                      fig_name='encod_vs_alpha',
+                      **kwargs
+                      )
+
+    plotting.lineplot(x='alpha', y=score,
+                      df=df_decoding,
+                      palette=COLORS[:-1],
+                      hue='class',
+                      hue_order=sort_class_labels(np.unique(df_decoding['class'])),
+                      title=title_decoding,
+                      # ci='sd',
+                      fig_name='decod_vs_alpha',
+                      **kwargs
+                      )
+
+
+def boxplot_scores_vs_class_per_alpha(df_encoding, df_decoding, score, include_alpha=None, scale=True, minmax=None, **kwargs):
+
+    if include_alpha is not None:
+        df_encoding = df_encoding.loc[df_encoding['alpha'].isin(include_alpha), :].reset_index(drop=True)
+        df_decoding = df_decoding.loc[df_decoding['alpha'].isin(include_alpha), :].reset_index(drop=True)
+
+    if scale:
+        if minmax is None:
+            min_score = min(np.min(df_encoding[score]), np.min(df_decoding[score]))
+            max_score = max(np.max(df_encoding[score]), np.max(df_decoding[score]))
+        else:
+            min_score = minmax[0]
+            max_score = minmax[1]
+
+        df_encoding[score] = (df_encoding[score]-min_score)/(max_score-min_score)
+        df_decoding[score] = (df_decoding[score]-min_score)/(max_score-min_score)
+
+    # ----------------------------------------------------------------------
+    for alpha in np.unique(df_encoding['alpha']):
+
+        tmp_encoding = df_encoding.loc[df_encoding['alpha'] == alpha, :].reset_index(drop=True)
+        plotting.boxplot(x='class', y=score,
+                         df=tmp_encoding,
+                         palette=COLORS[:-1],
+                         title=f'encoding {score} - alpha: {alpha}',
+                         fig_name=f'enc_vs_class_{alpha}',
+                         **kwargs
+                         )
+
+        tmp_decoding = df_decoding.loc[df_decoding['alpha'] == alpha, :].reset_index(drop=True)
+        plotting.boxplot(x='class', y=score,
+                         df=tmp_decoding,
+                         palette=COLORS[:-1],
+                         title=f'decoding {score} - alpha: {alpha}',
+                         fig_name=f'dec_vs_class_{alpha}',
+                         **kwargs
+                         )
+
+
+# --------------------------------------------------------------------------------------------------------------------
+# PERFORMANCE ACROSS ALPHAS
+# ----------------------------------------------------------------------------------------------------------------------
+def boxplot_scores_vs_alpha(df_encoding, df_decoding, score, include_alpha=None, scale=True, minmax=None, **kwargs):
+
+    if include_alpha is None: include_alpha = np.unique(df_encoding['alpha'])
+    df_encoding = df_encoding.loc[df_encoding['alpha'].isin(include_alpha), :].reset_index(drop=True)
+    df_decoding = df_decoding.loc[df_decoding['alpha'].isin(include_alpha), :].reset_index(drop=True)
+
+    if minmax is None:
+        min_score = min(np.min(df_encoding[score]), np.min(df_decoding[score]))
+        max_score = max(np.max(df_encoding[score]), np.max(df_decoding[score]))
+    else:
+        min_score = minmax[0]
+        max_score = minmax[1]
+
+    if scale:
+        df_encoding[score] = (df_encoding[score]-min_score)/(max_score-min_score)
+        df_decoding[score] = (df_decoding[score]-min_score)/(max_score-min_score)
+        ylim = (0,1.1)
+    else:
+        ylim=None
+
+    # ----------------------------------------------------------------------
+    for clase in sort_class_labels(np.unique(df_encoding['class'])):
+
+        tmp_encoding = df_encoding.loc[df_encoding['class'] == clase, :].reset_index(drop=True)
+        tmp_decoding = df_decoding.loc[df_decoding['class'] == clase, :].reset_index(drop=True)
+        tmp = pd.concat((tmp_encoding, tmp_decoding)).reset_index(drop=True)
+
+        plotting.boxplot(x='alpha', y=score,
+                         df=tmp,
+                         palette={'encoding':ENCODE_COL, 'decoding':DECODE_COL},
+                         hue='coding',
+                         hue_order=['encoding', 'decoding'],
+                         title=clase,
+                         # xlim=(-1.0, 3.5), x_major_loc=0.5,
+                         ylim=ylim, y_major_loc=0.2,
+                         legend=True, figsize=(12,5),
+                         fig_name=f'bx_encod_decode_vs_alpha_{clase}',
+                         **kwargs
+                         )
+
+
+def lineplot_scores_vs_alpha_per_class(df_encoding, df_decoding, score, include_alpha=None, scale=True, minmax=None, **kwargs):
+
+    if include_alpha is not None:
+        df_encoding = df_encoding.loc[df_encoding['alpha'].isin(include_alpha), :].reset_index(drop=True)
+        df_decoding = df_decoding.loc[df_decoding['alpha'].isin(include_alpha), :].reset_index(drop=True)
+
+    if minmax is None:
+        min_score = min(np.min(df_encoding[score]), np.min(df_decoding[score]))
+        max_score = max(np.max(df_encoding[score]), np.max(df_decoding[score]))
+    else:
+        min_score = minmax[0]
+        max_score = minmax[1]
+
+    if scale:
+        df_encoding[score] = (df_encoding[score]-min_score)/(max_score-min_score)
+        df_decoding[score] = (df_decoding[score]-min_score)/(max_score-min_score)
+
+    # ----------------------------------------------------------------------
+    for clase in sort_class_labels(np.unique(df_encoding['class'])):
+
+        tmp_encoding = df_encoding.loc[df_encoding['class'] == clase, :].reset_index(drop=True)
+        tmp_decoding = df_decoding.loc[df_decoding['class'] == clase, :].reset_index(drop=True)
+        tmp = pd.concat((tmp_encoding, tmp_decoding)).reset_index(drop=True)
+
+        plotting.lineplot(x='alpha', y=score,
+                          df=tmp,
+                          palette={'encoding':ENCODE_COL, 'decoding':DECODE_COL},
+                          hue='coding',
+                          hue_order=None,
+                          title=clase,
+                          ci='sd',
+                          err_style='band',
+                          figsize=(12,5),
+                          fig_name=f'ln_encod_decode_vs_alpha_{clase}',
+                          **kwargs
+                          )
+
 
 
 # --------------------------------------------------------------------------------------------------------------------
 # SINGLE AND MULTIPLE SAMPLES
 # ----------------------------------------------------------------------------------------------------------------------
-def lineplot_enc_vs_dec(task_name, df_scores, score, hue='coding', hue_order=None, scale=True, **kwargs):
+def lineplot_enc_vs_dec(df_scores, score, hue='coding', hue_order=None, scale=True, minmax=None, **kwargs):
+
+    if minmax is None:
+        min_score = np.min(df_scores[score])
+        max_score = np.max(df_scores[score])
+    else:
+        min_score = minmax[0]
+        max_score = minmax[1]
 
     if scale:
-        # estimate global min and max to scale scores
-        max_score = np.max(df_scores[score])
-        min_score = np.min(df_scores[score])
         df_scores[score] = (df_scores[score]-min_score)/(max_score-min_score)
-
-    sns.set(style="ticks", font_scale=2.0)
-    fig = plt.figure(num=1, figsize=(15,5))
+        ylim = (0,1)
+    else:
+        ylim = None
 
     if hue == 'coding':
         hue_order = ['encoding', 'decoding']
@@ -174,184 +409,51 @@ def lineplot_enc_vs_dec(task_name, df_scores, score, hue='coding', hue_order=Non
         class_labels = sort_class_labels(np.unique(df_scores[hue]))
         palette = np.array([np.array(COLORS)[np.where(class_labels == clase)[0][0]] for clase in hue_order])
 
-    ax = plt.subplot(111)
-    sns.lineplot(x='class',
-                 y=score,
-                 data=df_scores,
-                 hue=hue,
-                 hue_order=hue_order,
-                   # ci='sd',
-                 # err_style='bars', #'band'
-                 palette=palette,
-                 marker='D',
-                 markersize=12,
-                 markers=True,
-                 linewidth=1,
-                 sort=False,
-                 ax=ax,
-                 **kwargs
-                 )
-
-    ax.legend(fontsize=15, frameon=True, ncol=1, loc='upper right')
-    # ax.get_legend().remove()
-
-    sns.despine(offset=10, trim=False)
-    # fig.savefig(fname='C:/Users/User/Desktop/poster/figures/line_coding_across_alpha.eps', transparent=True, bbox_inches='tight', dpi=300)
-    # fig.savefig(fname='C:/Users/User/Desktop/poster/figures/line_coding_across_alpha.jpg', transparent=True, bbox_inches='tight', dpi=300)
-    plt.show()
-    plt.close()
+    # ----------------------------------------------------
+    plotting.lineplot(x='class', y=score,
+                      df=df_scores,
+                      palette=palette,
+                      hue=hue,
+                      hue_order=hue_order,
+                      ylim=ylim,
+                      **kwargs
+                      )
 
 
-def lineplot_coding_scores(df_scores, score, hue_order=None, scale=True):
+def lineplot_coding_scores(df_scores, score, hue='class', hue_order=None, scale=True, minmax=None, **kwargs):
+
+    if minmax is None:
+        min_score = np.min(df_scores[score])
+        max_score = np.max(df_scores[score])
+    else:
+        min_score = minmax[0]
+        max_score = minmax[1]
 
     if scale:
-        # estimate global min and max to scale scores
-        max_score = np.max(df_scores[score])
-        min_score = np.min(df_scores[score])
         df_scores[score] = (df_scores[score]-min_score)/(max_score-min_score)
 
     df_scores = merge_coding_scores(df_scores, score)
 
-    sns.set(style="ticks", font_scale=2.0)
-    fig = plt.figure(num=1, figsize=(15,5))
-
     if hue_order is not None:
         class_labels = sort_class_labels(np.unique(df_scores['class']))
         palette = np.array([np.array(COLORS)[np.where(class_labels == clase)[0][0]] for clase in hue_order])
-    else: palette = COLORS[:-1]
+    else:
+        palette = COLORS[:-1]
 
-    ax = plt.subplot(111)
-    sns.lineplot(x='class',
-                 y='coding_' + score,
-                 data=df_scores,
-                 hue='class',
-                 hue_order=hue_order,
-                 # style=,
-                 ci='sd',
-                 err_style='bars', #'band'
-                 palette=palette,
-                 marker='D',
-                 markersize=12,
-                 markers=True,
-                 linewidth=1,
-                 sort=False,
-                 ax=ax
-                 )
-
-    ax.legend(fontsize=15, frameon=True, ncol=1, loc='upper right')
-    ax.get_legend().remove()
-
-    sns.despine(offset=10, trim=False)
-    # fig.savefig(fname='C:/Users/User/Desktop/poster/figures/lineplot_diff_coding_across_alpha.eps', transparent=True, bbox_inches='tight', dpi=300)
-    # fig.savefig(fname='C:/Users/User/Desktop/poster/figures/lineplot_diff_coding_across_alpha.jpg', transparent=True, bbox_inches='tight', dpi=300)
-    plt.show()
-    plt.close()
+    # ----------------------------------------------------
+    plotting.lineplot(x='class', y='coding_' + score,
+                      df=df_scores,
+                      palette=palette,
+                      hue=hue,
+                      hue_order=hue_order,
+                      err_style='bars',
+                      ci='sd',
+                      legend=False,
+                      **kwargs
+                     )
 
 
-def lineplot_scores_across_alpha(task_name, df_encoding, df_decoding, score, include_alpha=None, scale=True, **kwargs):
-
-    if include_alpha is None: include_alpha = np.unique(df_encoding['alpha'])
-    df_encoding = df_encoding.loc[df_encoding['alpha'].isin(include_alpha), :]
-    df_decoding = df_decoding.loc[df_decoding['alpha'].isin(include_alpha), :]
-
-    if scale:
-        # estimate global min and max to scale scores
-        max_score = 16 #max(np.max(df_encoding[score]), np.max(df_decoding[score]))
-        min_score = 0  #min(np.min(df_encoding[score]), np.min(df_decoding[score]))
-
-        df_encoding[score] = (df_encoding[score]-min_score)/(max_score-min_score)
-        df_decoding[score] = (df_decoding[score]-min_score)/(max_score-min_score)
-
-    # ------------------------------ AUC ---------------------------------------
-    auc_enc = []
-    auc_dec = []
-    for clase in sort_class_labels(np.unique(df_encoding['class'])):
-
-        # print(' clase: ' + clase)
-        tmp_df_enc = df_encoding.loc[df_encoding['class'] == clase, [score]][score]
-        auc_enc.append(auc(x=include_alpha, y=tmp_df_enc))
-        # print('   auc_enc:  ' + str(auc(x=include_alpha, y=tmp_df_enc)))
-
-        tmp_df_dec = df_decoding.loc[df_decoding['class'] == clase, [score]][score]
-        auc_dec.append(auc(x=include_alpha, y=tmp_df_dec))
-        # print('   auc_dec:  ' + str(auc(x=include_alpha, y=tmp_df_dec)))
-
-    # --------------------------------------------------------------------------
-
-    # plot
-    sns.set(style="ticks", font_scale=2.0)
-    fig = plt.figure(num=1, figsize=(20,8)) #(20,7))
-
-    ax1 = plt.subplot(121)
-    ax2 = plt.subplot(122)
-
-    sns.lineplot(x='alpha',
-                 y=score,
-                 data=df_encoding,
-                 hue='class',
-                 hue_order=sort_class_labels(np.unique(df_encoding['class'])),
-                 # style=,
-                 # ci='sd',
-                 # err_style='bars', #'band'
-                 palette= COLORS[:-1],
-                 marker='D',
-                 markersize=12,
-                 markers=True,
-                 linewidth=1,
-                 linestyle='--',
-                 sort=False,
-                 ax=ax1
-                 )
-
-    sns.lineplot(x='alpha',
-                 y=score,
-                 data=df_decoding,
-                 hue='class',
-                 hue_order=sort_class_labels(np.unique(df_decoding['class'])),
-                 # style=,
-                 # ci='sd',
-                 # err_style='bars', #'band'
-                 palette= COLORS[:-1],
-                 marker='D',
-                 markersize=12,
-                 markers=True,
-                 linewidth=1,
-                 linestyle='--',
-                 sort=False,
-                 ax=ax2
-                 )
-
-    # ax1.legend(fontsize=15, frameon=True, ncol=1, loc='upper right')
-    ax1.get_legend().remove()
-    ax1.set_title('AUC = ' + str(np.sum(auc_enc))[:5])
-    # ax1.set_xlim(0,2)
-    ax1.xaxis.set_major_locator(MultipleLocator(0.5))
-    ax1.set_ylabel('encoding_' + score)
-    ax1.set_ylim(0,1)
-    ax1.yaxis.set_major_locator(MultipleLocator(0.2))
-    # ax1.set_xticklabels(ax1.get_xticklabels(),fontsize=17)
-
-    sns.despine(offset=10, trim=False)
-
-    ax2.legend(fontsize=15, frameon=True, ncol=1, loc='upper right')
-    ax2.get_legend().remove()
-    ax2.set_title('AUC = ' + str(np.sum(auc_dec))[:5])
-    # ax2.set_xlim(0,2)
-    ax2.xaxis.set_major_locator(MultipleLocator(0.5))
-    ax2.set_ylabel('decoding_' + score)
-    ax2.set_ylim(0,1)
-    ax2.yaxis.set_major_locator(MultipleLocator(0.2))
-    # ax2.set_xticklabels(ax2.get_xticklabels(),fontsize=17)
-
-    sns.despine(offset=10, trim=False)
-
-    # fig.savefig(fname='C:/Users/User/Desktop/poster/figures/coding_per_alpha.eps', transparent=True, bbox_inches='tight', dpi=300)
-    # fig.savefig(fname='C:/Users/User/Desktop/poster/figures/coding_per_alpha.jpg', transparent=True, bbox_inches='tight', dpi=300)
-    plt.show()
-    plt.close()
-
-
-def scatterplot_enc_vs_dec(df_scores, score, norm_score_by=None, minmax_scale=True, hue='class', **kwargs):
+def scatterplot_enc_vs_dec(df_scores, score, norm_score_by=None, scale=True, minmax=None, hue='class', **kwargs):
     """
         Scatter plot (avg across alphas) encoding/decoding score vs (avg across nodes) network property
     """
@@ -374,167 +476,93 @@ def scatterplot_enc_vs_dec(df_scores, score, norm_score_by=None, minmax_scale=Tr
         tmp_decode_scores = df['decoding_' + score] - reg_dec.predict(X)
         df['decoding_' + score] = tmp_decode_scores
 
-    if minmax_scale:
-
-        # -----------------------------------------------------------------------
-        # estimate "global" min and max, and scale scores
-        maxm = max(np.max(df['encoding_' + score]), np.max(df['decoding_' + score]))
-        minm = min(np.min(df['encoding_' + score]), np.min(df['decoding_' + score]))
-
-        # df['encoding_' + score] = np.log(((df['encoding_' + score]-minm)/(maxm-minm))+1)
-        # df['decoding_' + score] = np.log(((df['decoding_' + score]-minm)/(maxm-minm))+1)
-
-        df['encoding_' + score] = ((df['encoding_' + score]-minm)/(maxm-minm))
-        df['decoding_' + score] = ((df['decoding_' + score]-minm)/(maxm-minm))
-
-        # -----------------------------------------------------------------------
-        # estimate "local" min and max, and scale scores
-        # df['encoding_' + score] = np.log(((df['encoding_' + score]-np.min(df['encoding_' + score]))/(np.max(df['encoding_' + score])-np.min(df['encoding_' + score]))+1))
-        # df['decoding_' + score] = np.log(((df['decoding_' + score]-np.min(df['decoding_' + score]))/(np.max(df['decoding_' + score])-np.min(df['decoding_' + score]))+1))
-
-        # -----------------------------------------------------------------------
-
-    # plot
-    sns.set(style="ticks", font_scale=2.0)
-    fig = plt.figure(num=1, figsize=(10,10))
-
-    ax = plt.subplot(111)
-    sns.scatterplot(
-                    x='decoding_' + score,
-                    y='encoding_' + score,
-                    data=df,
-                    hue=hue,
-                    palette=COLORS[:-1],
-                    # legend='full',
-                    ax=ax,
-                    **kwargs
-                    )
-
-    if minmax_scale:
-        maxm = 1.0
-        minm = 0.0
-        mp = 0.2
-
+    if minmax is None:
+        max_score = max(np.max(df['encoding_' + score]), np.max(df['decoding_' + score]))
+        min_score = min(np.min(df['encoding_' + score]), np.min(df['decoding_' + score]))
     else:
-        maxm = np.ceil(max(np.max(df['encoding_' + score]), np.max(df['decoding_' + score])))
-        minm = np.floor(min(np.min(df['encoding_' + score]), np.min(df['decoding_' + score])))+1.0
-        mp = 0.5
+        min_score = minmax[0]
+        max_score = minmax[1]
 
-    ax.plot([minm, maxm],
-            [minm, maxm],
-            linestyle='--',
-            linewidth=2,
-            color='dimgrey'
-            )
+    if scale:
+        df['encoding_' + score] = ((df['encoding_' + score]-min_score)/(max_score-min_score))
+        df['decoding_' + score] = ((df['decoding_' + score]-min_score)/(max_score-min_score))
 
-    ax.set_aspect("equal")
+        xlim = (0,1)
+        ylim = (0,1)
+    else:
+        xlim = None
+        ylim = None
 
-    # properties axis 1
-    ax.set_title(r'$R: %.2f $' % (np.round(np.corrcoef(df['encoding_' + score], df['decoding_' + score])[0][1], 2)))
-    # ax.set_title(r'$\rho: %.2f \;\;\; p_{val}= %.3f$' % (np.round(stats.spearmanr(df[prop], df['encoding_' + score])[0], 2), \
-                                                          # np.round(stats.spearmanr(df[prop], df['encoding_' + score])[1], 2)), fontsize=13)
-    ax.set_xlim(minm, maxm)
-    ax.xaxis.set_major_locator(plt.MultipleLocator(mp))
-
-    ax.set_ylim(minm, maxm)
-    ax.yaxis.set_major_locator(plt.MultipleLocator(mp))
-
-    # ax.legend(fontsize=15, frameon=True, ncol=1, loc=9) #'upper center')
-    ax.get_legend().remove()
-
-    sns.despine(offset=10, trim=False)
-    # fig.savefig(fname=os.path.join(RES_DIR, 'performance.jpg'), transparent=True, bbox_inches='tight', dpi=300,)
-    plt.show()
-    plt.close()
+    # ----------------------------------------------------
+    plotting.scatterplot(x='decoding_' + score,
+                         y='encoding_' + score,
+                         df=df,
+                         palette=COLORS[:-1],
+                         hue=hue,
+                         **kwargs
+                        )
 
 
 # --------------------------------------------------------------------------------------------------------------------
 # MULTIPLE SAMPLES
 # --------------------------------------------------------------------------------------------------------------------
-def boxplot_enc_vs_dec(df_scores, score, class_type='class', order=None, scale=True):
+def boxplot_enc_vs_dec(df_scores, score, class_type='class', order=None, scale=True, minmax=None, **kwargs):
+
+    if minmax is None:
+        min_score = np.min(df_scores[score])
+        max_score = np.max(df_scores[score])
+    else:
+        min_score = minmax[0]
+        max_score = minmax[1]
 
     if scale:
-        # estimate global min and max to scale scores
-        max_score = np.max(df_scores[score])
-        min_score = np.min(df_scores[score])
         df_scores[score] = (df_scores[score]-min_score)/(max_score-min_score)
+        ylim = (0,1)
+    else:
+        ylim=None
 
-    sns.set(style="ticks", font_scale=2.0)
-    fig = plt.figure(num=1, figsize=(15,5))
-
-    ax = plt.subplot(111)
-    axis = sns.boxplot(x=class_type, #'class' 'rsn' 'cyt'
-                       y=score,
-                       data=df_scores,
-                       hue='coding',
-                       order=order,
-                       palette={'encoding':ENCODE_COL, 'decoding':DECODE_COL},
-                       orient='v',
-                       width=0.6,
-                       linewidth=0.8,
-                       ax=ax
-                       )
-
-    for patch in axis.artists:
-        r, g, b, a = patch.get_facecolor()
-        patch.set_facecolor((r, g, b, 0.8))
-
-    ax.legend(fontsize =15, frameon=False, ncol=1, loc='upper left')
-    # ax.get_legend().remove()
-
-    sns.despine(offset=10, trim=False)
-    # fig.savefig(fname='C:/Users/User/Desktop/poster/figures/boxplot_coding_across_alpha.eps', transparent=True, bbox_inches='tight', dpi=300)
-    # fig.savefig(fname='C:/Users/User/Desktop/poster/figures/boxplot_coding_across_alpha.jpg', transparent=True, bbox_inches='tight', dpi=300)
-    plt.show()
-    plt.close()
+    # ----------------------------------------------------
+    plotting.boxplot(x=class_type, y=score,
+                     df=df_scores,
+                     hue='coding',
+                     order=order,
+                     palette={'encoding':ENCODE_COL, 'decoding':DECODE_COL},
+                     ylim=ylim,
+                     **kwargs
+                     )
 
 
-def boxplot_coding_scores(df_scores, score, order=None, scale=True):
+def boxplot_coding_scores(df_scores, score, order=None, scale=True, minmax=None, **kwargs):
+
+    if minmax is None:
+        min_score = np.min(df_scores[score])
+        max_score = np.max(df_scores[score])
+    else:
+        min_score = minmax[0]
+        max_score = minmax[1]
 
     if scale:
-        # estimate global min and max to scale scores
-        max_score = np.max(df_scores[score])
-        min_score = np.min(df_scores[score])
         df_scores[score] = (df_scores[score]-min_score)/(max_score-min_score)
 
     df_scores = merge_coding_scores(df_scores, score)
 
-    sns.set(style="ticks", font_scale=2.0)
-    fig = plt.figure(num=1, figsize=(15,5))
-
-    # get class labels
     if order is not None:
         class_labels = sort_class_labels(np.unique(df_scores['class']))
         palette = np.array([np.array(COLORS)[np.where(class_labels == clase)[0][0]] for clase in order])
-    else: palette = COLORS[:-1]
+    else:
+        palette = COLORS[:-1]
 
-    ax = plt.subplot(111)
-    axis = sns.boxplot(x='class',
-                       y='coding_' + score,
-                       data=df_scores,
-                       order=order,
-                       palette=palette,
-                       orient='v',
-                       width=0.5,
-                       linewidth=0.8,
-                       ax=ax
-                       )
-
-    for patch in axis.artists:
-       r, g, b, a = patch.get_facecolor()
-       patch.set_facecolor((r, g, b, 0.8))
-
-    # ax.legend(fontsize=15, frameon=False, ncol=1, loc='lower right')
-    # ax.get_legend().remove()
-
-    sns.despine(offset=10, trim=False, bottom=False)
-    # fig.savefig(fname='C:/Users/User/Desktop/poster/figures/boxplot_diff_coding_across_alpha.eps', transparent=True, bbox_inches='tight', dpi=300)
-    # fig.savefig(fname='C:/Users/User/Desktop/poster/figures/boxplot_diff_coding_across_alpha.jpg', transparent=True, bbox_inches='tight', dpi=300)
-    plt.show()
-    plt.close()
+    # ----------------------------------------------------
+    plotting.boxplot(x='class', y='coding_' + score,
+                     df=df_scores,
+                     order=order,
+                     palette=palette,
+                     legend=False,
+                     **kwargs
+                     )
 
 
-def kdeplot_enc_vs_dec(df_scores, score, norm_score_by=None, minmax_scale=True):
+def jointplot_enc_vs_dec(df_scores, score, hue_order=None, kind='scatter', norm_score_by=None, scale=True, minmax=None, draw_line=True, **kwargs):
 
     df = merge_coding_scores(df_scores, score)
 
@@ -555,78 +583,71 @@ def kdeplot_enc_vs_dec(df_scores, score, norm_score_by=None, minmax_scale=True):
         tmp_decode_scores = df['decoding_' + score] - reg_dec.predict(X)
         df['decoding_' + score] = tmp_decode_scores
 
-    if minmax_scale:
-
-        # -----------------------------------------------------------------------
-        # estimate "global" min and max, and scale scores
-        maxm = max(np.max(df['encoding_' + score]), np.max(df['decoding_' + score]))
-        minm = min(np.min(df['encoding_' + score]), np.min(df['decoding_' + score]))
-
-        # df['encoding_' + score] = np.log(((df['encoding_' + score]-minm)/(maxm-minm))+1)
-        # df['decoding_' + score] = np.log(((df['decoding_' + score]-minm)/(maxm-minm))+1)
-
-        df['encoding_' + score] = ((df['encoding_' + score]-minm)/(maxm-minm))
-        df['decoding_' + score] = ((df['decoding_' + score]-minm)/(maxm-minm))
-
-        # -----------------------------------------------------------------------
-        # estimate "local" min and max, and scale scores
-        # df['encoding_' + score] = np.log(((df['encoding_' + score]-np.min(df['encoding_' + score]))/(np.max(df['encoding_' + score])-np.min(df['encoding_' + score]))+1))
-        # df['decoding_' + score] = np.log(((df['decoding_' + score]-np.min(df['decoding_' + score]))/(np.max(df['decoding_' + score])-np.min(df['decoding_' + score]))+1))
-
-        # -----------------------------------------------------------------------
-
-    # plot
-    sns.set(style="ticks", font_scale=2.0)
-    fig = plt.figure(num=1, figsize=(10,10))
-
-    # get class labels
-    class_labels = sort_class_labels(np.unique(df_scores['class']))
-    for i, clase in enumerate(class_labels):
-
-        tmp_df_encod = df.loc[df['class'] == clase, ['encoding_' + score]]['encoding_' + score]
-        tmp_df_decod = df.loc[df['class'] == clase, ['decoding_' + score]]['decoding_' + score]
-
-        ax = sns.kdeplot(data=tmp_df_decod,
-                         data2=tmp_df_encod,
-                         color=COLORS[i],
-                         shade=True,
-                         shade_lowest=False,
-                         )
-
-
-    # Draw 1:1 line
-    if minmax_scale:
-        maxm = 1.0
-        minm = 0.0
-        mp = 0.2
-
+    if minmax is None:
+        max_score = max(np.max(df['encoding_' + score]), np.max(df['decoding_' + score]))
+        min_score = min(np.min(df['encoding_' + score]), np.min(df['decoding_' + score]))
     else:
-        maxm = np.ceil(max(np.max(df['encoding_' + score]), np.max(df['decoding_' + score])))
-        minm = np.floor(min(np.min(df['encoding_' + score]), np.min(df['decoding_' + score])))+1.0
-        mp = 0.5
+        min_score = minmax[0]
+        max_score = minmax[1]
 
-    ax.plot([minm, maxm],
-            [minm, maxm],
-            linestyle='--',
-            linewidth=2,
-            color='dimgrey'
-            )
+    if scale:
+        df['encoding_' + score] = ((df['encoding_' + score]-min_score)/(max_score-min_score))
+        df['decoding_' + score] = ((df['decoding_' + score]-min_score)/(max_score-min_score))
 
-    ax.set_aspect("equal")
+        xlim = (0,1)
+        ylim = (0,1)
+    else:
+        xlim = None
+        ylim = None
 
-    ax.set_xlim(minm, maxm)
-    ax.xaxis.set_major_locator(plt.MultipleLocator(mp))
+    # ------------------------------
+    sns.set(style="ticks", font_scale=2.0)
 
-    ax.set_ylim(minm, maxm)
-    ax.yaxis.set_major_locator(plt.MultipleLocator(mp))
+    class_labels = sort_class_labels(np.unique(df['class']))
 
-    # ax.legend(fontsize=20, frameon=False, ncol=1, loc='lower right')
-    # ax.get_legend().remove()
+    tmp = df.loc[df['class'] == class_labels[0], :]
 
-    sns.despine(offset=10, trim=False)
+    g = sns.JointGrid(x=tmp['decoding_' + score].values,
+                      y=tmp['encoding_' + score].values,
+                      dropna=True,
+                      height=10,
+                      ratio=7,
+                      # space=,
+                      xlim=xlim,
+                      ylim=ylim
+                      )
 
-    plt.show()
-    plt.close()
+    if kind == 'kdeplot':
+        g.plot_joint(sns.kdeplot, color=COLORS[0], shade=True, shade_lowest=False, **kwargs)#, label=class_labels[0], legend=False)
+    elif kind == 'scatter':
+        g.plot_joint(sns.scatterplot, color=COLORS[0], **kwargs)#, label=class_labels[0], legend=False)
+
+    g.plot_marginals(sns.distplot, hist=False, kde=True, kde_kws={"shade": True}, color=COLORS[0], **kwargs)
+
+    for i, clase in enumerate(class_labels[1:]):
+
+        tmp = df.loc[df['class'] == clase, :]
+        g.x = tmp['decoding_' + score].values
+        g.y = tmp['encoding_' + score].values
+
+        if kind == 'kdeplot':
+            g.plot_joint(sns.kdeplot, color=COLORS[i+1], shade=True, shade_lowest=False, **kwargs)#, label=clase, legend=False)
+        elif kind == 'scatter':
+            g.plot_joint(sns.scatterplot, color=COLORS[i+1], **kwargs)#, label=class_labels[0], legend=False)
+
+        g.plot_marginals(sns.distplot, hist=False, kde=True, kde_kws={"shade": True}, color=COLORS[i+1])
+
+    g.ax_joint.set_xlabel('decoding  ' + score)
+    g.ax_joint.set_ylabel('encoding  ' + score)
+
+    #g.ax_joint.get_legend().remove()
+    #g.ax_joint.legend(fontsize=10, frameon=False, ncol=1, loc='lower right', title='rsn')
+    #plt.legend(fontsize=10, frameon=False, ncol=1)#, loc='lower right')
+
+    if draw_line:
+        g.x = [0.05,0.95]
+        g.y = [0.05,0.95]
+        g.plot_joint(sns.lineplot, color='dimgrey', dashes=(5, 1))
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -640,8 +661,8 @@ def ttest(df_scores, score, fdr_correction=True, test='2samp'):
     pval = []
     tstat = []
     for clase in class_labels:
-        encod_scores = df_scores.loc[(df_scores['class'] == clase) & (df_scores['coding'] == 'encoding'), [score]][score]
-        decod_scores = df_scores.loc[(df_scores['class'] == clase) & (df_scores['coding'] == 'decoding'), [score]][score]
+        encod_scores = df_scores.loc[(df_scores['class'] == clase) & (df_scores['coding'] == 'encoding'), :][score].values
+        decod_scores = df_scores.loc[(df_scores['class'] == clase) & (df_scores['coding'] == 'decoding'), :][score].values
 
         if test == '1samp': t, p = stats.ttest_1samp(encod_scores-decod_scores, popmean=0.0)
         elif test == '2samp': t, p = stats.ttest_ind(encod_scores, decod_scores, equal_var=False)
@@ -650,7 +671,7 @@ def ttest(df_scores, score, fdr_correction=True, test='2samp'):
         pval.append(p)
         tstat.append(t)
 
-    if fdr_correction: pval = multipletests(pval, 0.1, 'bonferroni')[1]
+    if fdr_correction: pval = multipletests(pval, 0.05, 'bonferroni')[1]
 
     return tstat, pval
 
@@ -671,8 +692,8 @@ def effect_size(df_scores, score, test='2samp'):
 
     size_effect = []
     for clase in class_labels:
-        encod_scores = df_scores.loc[(df_scores['class'] == clase) & (df_scores['coding'] == 'encoding'), [score]][score]
-        decod_scores = df_scores.loc[(df_scores['class'] == clase) & (df_scores['coding'] == 'decoding'), [score]][score]
+        encod_scores = df_scores.loc[(df_scores['class'] == clase) & (df_scores['coding'] == 'encoding'),:][score].values
+        decod_scores = df_scores.loc[(df_scores['class'] == clase) & (df_scores['coding'] == 'decoding'),:][score].values
 
         if test == '1samp': size_effect.append(cohen_d_1samp(encod_scores-decod_scores))
         elif test == '2samp': size_effect.append(cohen_d_2samp(encod_scores, decod_scores))
@@ -712,5 +733,75 @@ def barplot_eff_size(df_scores, score, test='2samp', hue_order=None):
     sns.despine(offset=10, trim=True)
     # fig.savefig(fname='C:/Users/User/Desktop/poster/figures/barplot_effect_size.eps', transparent=True, bbox_inches='tight', dpi=300)
     # fig.savefig(fname='C:/Users/User/Desktop/poster/figures/barplot_effect_size.jpg', transparent=True, bbox_inches='tight', dpi=300)
+    plt.show()
+    plt.close()
+
+
+# --------------------------------------------------------------------------------------------------------------------
+# OTHERS
+# ----------------------------------------------------------------------------------------------------------------------
+def jointplot_enc_vs_dec_indiv(df_scores, score, norm_score_by=None, scale=True, minmax=None, draw_line=True, **kwargs):
+
+    df = merge_coding_scores(df_scores, score)
+
+    if norm_score_by is not None:
+
+        # divide coding scores by degree
+        # df['encoding_' + score] = df['encoding_' + score]/df[norm_score_by]
+        # df['decoding_' + score] = df['decoding_' + score]/df[norm_score_by]
+
+        # regress out degree from coding scores
+        X = np.array(df[norm_score_by])[:, np.newaxis]
+
+        reg_enc = LinearRegression().fit(X, y=df['encoding_' + score])
+        tmp_encode_scores = df['encoding_' + score] - reg_enc.predict(X)
+        df['encoding_' + score] = tmp_encode_scores
+
+        reg_dec = LinearRegression().fit(X, y=df['decoding_' + score])
+        tmp_decode_scores = df['decoding_' + score] - reg_dec.predict(X)
+        df['decoding_' + score] = tmp_decode_scores
+
+    if minmax is None:
+        max_score = max(np.max(df['encoding_' + score]), np.max(df['decoding_' + score]))
+        min_score = min(np.min(df['encoding_' + score]), np.min(df['decoding_' + score]))
+    else:
+        min_score = minmax[0]
+        max_score = minmax[1]
+
+    if scale:
+        df['encoding_' + score] = ((df['encoding_' + score]-min_score)/(max_score-min_score))
+        df['decoding_' + score] = ((df['decoding_' + score]-min_score)/(max_score-min_score))
+
+        xlim = (0,1)
+        ylim = (0,1)
+    else:
+        xlim = None
+        ylim = None
+
+    # ------------------------------
+    # get class labels
+    class_labels = sort_class_labels(np.unique(df_scores['class']))
+    for i, clase in enumerate(class_labels):
+
+        tmp = df.loc[df['class'] == clase, :]
+        g = sns.JointGrid(x='decoding_' + score,
+                          y='encoding_' + score,
+                          data=tmp,
+                          dropna=True,
+                          height=8,
+                          # ratio=,
+                          # space=,
+                          xlim=xlim,
+                          ylim=ylim
+                          )
+
+        g = g.plot_joint(sns.scatterplot, color=COLORS[i])
+        g = g.plot_marginals(sns.kdeplot, shade=True, color=COLORS[i])
+
+        if draw_line:
+            g.x = [0.05,0.95]
+            g.y = [0.05,0.95]
+            g.plot_joint(sns.lineplot, color='dimgrey', dashes=(5, 1))
+
     plt.show()
     plt.close()

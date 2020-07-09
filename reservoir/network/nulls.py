@@ -37,7 +37,7 @@ def construct_network_model(conn, type, **kwargs):
 #%% --------------------------------------------------------------------------------------------------------------------
 # NULL NETWORK MODELS
 # ----------------------------------------------------------------------------------------------------------------------
-def watts_and_strogatz(conn, p_conn=[0.1]):
+def watts_and_strogatz(conn, p_conn=[0.1], bin=False):
 
     # scale conn data
     conn_vec = conn[np.tril_indices_from(conn, -1)]
@@ -76,12 +76,13 @@ def watts_and_strogatz(conn, p_conn=[0.1]):
         # create watts_strogatz graph
         G = nx.watts_strogatz_graph(N, deg, p)
         network = nx.to_numpy_array(G)
-        mask = np.nonzero(network)
 
-        # assign weights to conns
-        actual_conns = conn[mask]
-        new_conns = get_pdf(data, st.powerlognorm, len(mask[0]))
-        network[mask] = new_conns[np.argsort(actual_conns)]
+        if not bin:
+            # assign weights to conns
+            mask = np.nonzero(network)
+            actual_conns = conn[mask]
+            new_conns = get_pdf(data, st.powerlognorm, len(mask[0]))
+            network[mask] = new_conns[np.argsort(actual_conns)]
 
         # save weighted network
         networks.append(network)

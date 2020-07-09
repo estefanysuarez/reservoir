@@ -125,7 +125,8 @@ def basic_decoder(task, target, reservoir_states, output_nodes=None, cluster_lab
                 tmp = []
                 for i in range(100):
 
-                    print('-------------------' + str(i) + '--------------------')
+                    if i % 20 == 0:
+                        print('-------------------' + str(i) + '--------------------')
 
                     output_nodes = []
                     for num_nodes, mapp in zip(new_conn_profile, unique_mapps):
