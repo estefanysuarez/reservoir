@@ -16,7 +16,7 @@ INSTALL_REQUIRES = [
     'netneurotools==0.2.1',
     'seaborn>=0.8',
     'bctpy==0.5.0',
-    'networkx==2.1'
+    'networkx==2.1',
     'MDP==3.5',
     'tqdm==4.28.1'
 ]
