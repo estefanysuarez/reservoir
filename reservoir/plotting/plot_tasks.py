@@ -188,7 +188,7 @@ def sort_class_labels(class_labels):
 
 
 # --------------------------------------------------------------------------------------------------------------------
-# PERFORMANCE ACROSS ALPHAS
+# PI - PERFORMANCE ALONG ALPHA VALUES
 # ----------------------------------------------------------------------------------------------------------------------
 def lineplot_scores_vs_alpha(df_encoding, df_decoding, score, include_alpha=None, scale=True, minmax=None, **kwargs):
 
@@ -299,7 +299,7 @@ def boxplot_scores_vs_class_per_alpha(df_encoding, df_decoding, score, include_a
 
 
 # --------------------------------------------------------------------------------------------------------------------
-# PERFORMANCE ACROSS ALPHAS
+# AVG PERFORMANCE ACROSS ALPHAS
 # ----------------------------------------------------------------------------------------------------------------------
 def boxplot_scores_vs_alpha(df_encoding, df_decoding, score, include_alpha=None, scale=True, minmax=None, **kwargs):
 
@@ -336,7 +336,7 @@ def boxplot_scores_vs_alpha(df_encoding, df_decoding, score, include_alpha=None,
                          title=clase,
                          # xlim=(-1.0, 3.5), x_major_loc=0.5,
                          ylim=ylim, y_major_loc=0.2,
-                         legend=True, figsize=(12,5),
+                         legend=True, #figsize=(12,5),
                          fig_name=f'bx_encod_decode_vs_alpha_{clase}',
                          **kwargs
                          )

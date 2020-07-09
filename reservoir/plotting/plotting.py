@@ -74,8 +74,8 @@ def lineplot(x, y, df, palette=None, title=None, hue=None, hue_order=None, \
 
 
 def boxplot(x, y, df, palette, title=None, hue=None, order=None, orient='v', \
-            width=0.5, linewidth=1, xlim=None, ylim=None, legend=True, \
-            fig_name=None, figsize=(15,5), **kwargs):
+            width=0.5, linewidth=1, xlim=None, x_major_loc=None, ylim=None, \
+            y_major_loc=None, legend=True, fig_name=None, figsize=(15,5), **kwargs):
 
      sns.set(style="ticks", font_scale=2.0)
 
@@ -104,7 +104,10 @@ def boxplot(x, y, df, palette, title=None, hue=None, order=None, orient='v', \
      if title is not None: ax.set_title(title)
 
      if xlim is not None: ax.set_ylim(xlim)
+     if x_major_loc is not None: ax.xaxis.set_major_locator(MultipleLocator(x_major_loc))
+
      if ylim is not None: ax.set_ylim(ylim)
+     if y_major_loc is not None: ax.yaxis.set_major_locator(MultipleLocator(y_major_loc))
 
      sns.despine(offset=10, trim=True)
 
