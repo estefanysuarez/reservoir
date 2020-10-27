@@ -255,20 +255,19 @@ def run_pttn_recog(X, Y, time_lens=None, normalize=False, **kwargs):
 #%% --------------------------------------------------------------------------------------------------------------------
 # GRAL METHODS
 # ----------------------------------------------------------------------------------------------------------------------
-def get_default_alpha_values(task):
+def get_default_alpha_values(task=None):
 
-    # [0.3, 0.5, 0.7, 0.8, 0.9]  stable
-    # [1.0, 1.5, 2.0, 2.5, 3.0]       chaotic
-    # [0.3, 0.5, 1.0, 1.5, 2.0, 2.5] short
-    # [0.3, 0.5, 0.7, 0.8, 0.9, 1.0, 1.5, 2.0, 2.5] long
+    if task is None:
+        alphas = [0.3, 0.5, 0.7, 0.8, 0.9, 0.95, 1.0, 1.05, 1.1, 1.2, 1.3, 1.4, 1.5, 2.0, 2.5, 3.0, 3.5]
 
-    if (task == 'mem_cap') or (task == 'nonlin_cap') or (task == 'pttn_recog'):
-        alpha = [0.05, 0.1, 0.3, 0.5, 0.7, 0.8, 0.9, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5]
+    elif (task == 'mem_cap') or (task == 'nonlin_cap') or (task == 'pttn_recog'):
+        # alphas = [0.05, 0.1, 0.3, 0.5, 0.7, 0.8, 0.9, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5]
+        alphas = [0.3, 0.5, 0.7, 0.8, 0.9, 0.95, 1.0, 1.05, 1.1, 1.2, 1.3, 1.4, 1.5, 2.0, 2.5, 3.0, 3.5]
 
     elif (task == 'fcn_app'):
-        alpha = [0.1, 0.3, 0.7, 0.9, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5]
+        alphas = [0.1, 0.3, 0.7, 0.9, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5]
 
-    return alpha
+    return alphas
 
 
 def get_default_task_params(task):
@@ -295,38 +294,33 @@ def run_task(task, target, reservoir_states, readout_nodes=None, include_alpha=N
         across the different alpha values.
     """
 
-    # all alpha values at which the network was simulated
-    alpha = [0.05, 0.1, 0.3, 0.5, 0.7, 0.8, 0.9, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5]
-    if include_alpha is None: include_alpha = get_default_alpha_values(task)
-
-    # perform task on different reservoir states corresponding to different alpha values
+    # perform task for different reservoir states corresponding to different alpha values
     res = []
     for idx, x in enumerate(reservoir_states):
 
-        if alpha[idx] in include_alpha:
-            # print('-----------------------------------------------------------')
-            # print('alpha = ' + str(alpha[idx]))
+        # define x and y
+        if readout_nodes is not None: x = x.squeeze()[:, :, readout_nodes]
+        else: x = x.squeeze()
+        y = target.squeeze()
 
-            # define x and y
-            if readout_nodes is not None: x = x.squeeze()[:, :, readout_nodes]
-            else: x = x.squeeze()
-            y = target.squeeze()
+        # perform task
+        if task == 'mem_cap':
+            perf, task_params = run_mem_cap(x, y, **kwargs)
 
-            # perform task
-            if task == 'mem_cap':
-                perf, task_params = run_mem_cap(x, y, **kwargs)
+        elif task == 'nonlin_cap':
+            perf, task_params = run_nonlin_cap(x, y, **kwargs)
 
-            elif task == 'nonlin_cap':
-                perf, task_params = run_nonlin_cap(x, y, **kwargs)
+        elif task == 'fcn_app':
+            perf, task_params = run_fcn_app(x, y, **kwargs)
 
-            elif task == 'fcn_app':
-               perf, task_params = run_fcn_app(x, y, **kwargs)
+        elif task == 'pttn_recog':
+           perf = run_pttn_recog(x, y, **kwargs)
+           task_params = None
 
-            elif task == 'pttn_recog':
-               perf = run_pttn_recog(x, y, **kwargs)
-               task_params = None
+        res.append(perf) # across task parameters
 
-            res.append(perf) # across task parameters
+    # all alpha values at which the network was simulated
+    if include_alpha is None: include_alpha = get_default_task_params(task)
 
     return res, task_params, include_alpha # across task parameters and alpha values
 
@@ -373,20 +367,6 @@ def get_scores_per_alpha(task, performance, task_params, thres=0.9, normalize=Fa
     perf_per_alpha = np.array([np.sum(perf) for perf in performance])
 
     return perf_per_alpha, cap_per_alpha
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

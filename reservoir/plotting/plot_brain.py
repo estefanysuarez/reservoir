@@ -167,8 +167,8 @@ def brain_networks(coords, class_names, class_mapping,  title=None):
     """
         Dot brain plots ... RSN brain plots
     """
-
-    colors = np.array([COLORS[np.where(class_names == mapp)[0][0]] for mapp in class_mapping])
+    palette = np.array(COLORS)
+    colors = np.array([palette[np.where(class_names == mapp)[0]] for mapp in class_mapping])
 
     fig = plt.figure(num=np.random.randint(0, 100), figsize=(1.1*17,1.1*1.33*5))
 
@@ -180,7 +180,7 @@ def brain_networks(coords, class_names, class_mapping,  title=None):
     for clase in class_names:
 
         # vector of colors
-        c = colors[np.where(class_mapping == clase)[0]]
+        c = colors[np.where(class_mapping == clase)[0][0]]
         s = 200
 
         # lateral view - lh
@@ -227,8 +227,9 @@ def brain_networks(coords, class_names, class_mapping,  title=None):
     sns.despine()
     fig.tight_layout()
 
-    fig.savefig(fname='C:/Users/User/Desktop/' + title + '.eps', transparent=True, bbox_inches='tight', dpi=300)
+    # fig.savefig(fname='C:/Users/User/Desktop/' + title + '.png', transparent=True, bbox_inches='tight', dpi=300)
     # fig.savefig(fname='C:/Users/User/Desktop/poster/figures/' + title + '.jpg', transparent=True, bbox_inches='tight', dpi=300)
+    fig.savefig(fname='C:/Users/User/Dropbox/figures_RC/eps/' + title + '.eps', transparent=True, bbox_inches='tight', dpi=300)
 
     plt.show()
 

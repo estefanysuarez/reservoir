@@ -6,7 +6,7 @@ Created on Fri Mar  1 09:40:33 2019
 """
 import numpy as np
 import matplotlib.pyplot as plt
-from ..tasks import io
+from ..tasks import tasks
 
 #%% --------------------------------------------------------------------------------------------------------------------
 # NETWORK SIMULATION
@@ -27,11 +27,11 @@ def sim(w, w_in, stimulus, ic=None):
     return x, synap_input, timesteps
 
 
-def run_sim(conn, input_nodes, inputs, factor, alphas=None, **kwargs):
+def run_sim(conn, input_nodes, inputs, factor, task=None, alphas=None, **kwargs):
     """
-        Given a connectivity matrix, an input sequence, and a set of input
-        nodes, this method simulates the reservoir network for multiple values
-        of ALPHA, and returns the reservoir states of all the nodes in the
+        Given a connectivity matrix conn, an input sequence (inputs), and a set of input_
+        nodes, this method simulates the dynamics of the network for multiple values
+        of alpha (alphas), and returns the reservoir states of ALL the nodes in the
         network.
     """
 
@@ -43,7 +43,8 @@ def run_sim(conn, input_nodes, inputs, factor, alphas=None, **kwargs):
     conn_input[:,input_nodes] = factor
 
     # simulate network for different alpha values
-    if alphas is None: alphas = [0.05, 0.1, 0.3, 0.5, 0.7, 0.8, 0.9, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5]
+    if alphas is None: alphas = tasks.get_default_alpha_values(task)
+
     res_states = []
     for alpha in alphas:
         new_conn = alpha * conn.copy()

@@ -17,13 +17,22 @@ from statsmodels.stats.multitest import multipletests
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import auc
 
+import matplotlib
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['pdf.fonttype'] = 42
+# matplotlib.rcParams['text.usetex'] = True
+matplotlib.rcParams['ps.usedistiller'] = 'xpdf'
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.lines import Line2D
+from matplotlib.colors import (ListedColormap, Normalize)
 from matplotlib.ticker import (MultipleLocator, FormatStrFormatter, AutoMinorLocator)
+import matplotlib.patches as mpatches
 
 import seaborn as sns
 
-FIG_DIR = 'C:/Users/User/Dropbox/figures_RC/' # 'C:/Users/User/Desktop/'
-FIG_EXT = '.jpg'
+FIG_DIR = 'C:/Users/User/Dropbox/figures_RC/eps' # 'C:/Users/User/Desktop/'
+FIG_EXT = '.eps'
 
 # --------------------------------------------------------------------------------------------------------------------
 # GENERAL
@@ -54,7 +63,7 @@ def lineplot(x, y, df, palette=None, title=None, hue=None, hue_order=None, \
                   **kwargs
                   )
 
-     if legend: ax.legend(fontsize=15, frameon=True, ncol=1, loc='upper right')
+     if legend: ax.legend(fontsize=15, frameon=False, ncol=1, loc='upper right')
      else: ax.get_legend().remove()
 
      if title is not None: ax.set_title(title)
@@ -73,8 +82,8 @@ def lineplot(x, y, df, palette=None, title=None, hue=None, hue_order=None, \
      plt.close()
 
 
-def boxplot(x, y, df, palette, title=None, hue=None, order=None, orient='v', \
-            width=0.5, linewidth=1, xlim=None, x_major_loc=None, ylim=None, \
+def boxplot(x, y, df, palette=None, title=None, suptitle=None, hue=None, order=None, orient='v', \
+            width=0.8, linewidth=1, xlim=None, x_major_loc=None, ylim=None, \
             y_major_loc=None, legend=True, fig_name=None, figsize=(15,5), **kwargs):
 
      sns.set(style="ticks", font_scale=2.0)
@@ -98,18 +107,18 @@ def boxplot(x, y, df, palette, title=None, hue=None, order=None, orient='v', \
          r, g, b, a = patch.get_facecolor()
          patch.set_facecolor((r, g, b, 0.9))
 
-     if legend: ax.legend(fontsize=15, frameon=True, ncol=1, loc='upper right')
-     # else: ax.get_legend().remove()
+     if legend: ax.legend(fontsize=15, frameon=True, ncol=1, loc='best')
+     else: ax.get_legend().remove()
 
      if title is not None: ax.set_title(title)
-
+     if suptitle is not None: plt.suptitle(suptitle)
      if xlim is not None: ax.set_ylim(xlim)
      if x_major_loc is not None: ax.xaxis.set_major_locator(MultipleLocator(x_major_loc))
 
      if ylim is not None: ax.set_ylim(ylim)
      if y_major_loc is not None: ax.yaxis.set_major_locator(MultipleLocator(y_major_loc))
 
-     sns.despine(offset=10, trim=True)
+     sns.despine(offset=10, trim='False')
 
      if fig_name is not None: fig.savefig(fname=os.path.join(FIG_DIR, fig_name + FIG_EXT), transparent=True, bbox_inches='tight', dpi=300)
 
@@ -117,10 +126,51 @@ def boxplot(x, y, df, palette, title=None, hue=None, order=None, orient='v', \
      plt.close()
 
 
-def scatterplot(x, y, df, palette, title=None, hue=None, hue_order=None, \
-                hue_norm=None, markers=True, s=12, xlim=None, x_major_loc=None,
-                ylim=None, y_major_loc=None, legend=True, figsize=(8,8),
-                fig_name=None, draw_line=True, **kwargs):
+def distplot(x, color, bins=50, hist=False, kde=True, label=None, \
+             kde_kws={'shade':True, 'clip':(-1,1)}, \
+             xlim=None, x_major_loc=None, ylim=None, y_major_loc=None, \
+             legend=True, fig_name=None, figsize=(20,7), **kwargs):
+
+    sns.set(style="ticks", font_scale=2.0)
+
+    fig = plt.figure(figsize=figsize)
+    ax = plt.subplot(111)
+
+    sns.distplot(a=x,
+                 bins=bins,
+                 hist=hist,
+                 kde=kde,
+                 kde_kws=kde_kws,
+                 color=color,
+                 label=labels,
+                 **kwargs
+                 )
+
+    if legend: ax.legend(fontsize=15, frameon=True, ncol=1, loc='upper right')
+    else: ax.get_legend().remove()
+
+    if title is not None: ax.set_title(title)
+    if suptitle is not None: plt.suptitle(suptitle)
+
+    if xlim is not None: ax.set_ylim(xlim)
+    if x_major_loc is not None: ax.xaxis.set_major_locator(MultipleLocator(x_major_loc))
+
+    if ylim is not None: ax.set_ylim(ylim)
+    if y_major_loc is not None: ax.yaxis.set_major_locator(MultipleLocator(y_major_loc))
+
+    sns.despine(offset=10, trim=True)
+
+    if fig_name is not None: fig.savefig(fname=os.path.join(FIG_DIR, fig_name + FIG_EXT), transparent=True, bbox_inches='tight', dpi=300)
+
+    plt.show()
+    plt.close()
+
+
+def scatterplot(x, y, df, palette, title=None, hue=None, hue_order=None, hue_norm=None, \
+                markers=True, s=12, linewidth=1.5, alpha=0.7, edgecolor='face', \
+                xlim=None, x_major_loc=None, ylim=None, y_major_loc=None, \
+                legend=True, figsize=(8,8), fig_name=None, draw_line=True, \
+                **kwargs):
 
      sns.set(style="ticks", font_scale=2.0)
 
@@ -131,7 +181,11 @@ def scatterplot(x, y, df, palette, title=None, hue=None, hue_order=None, \
                      data=df,
                      palette=palette,
                      hue=hue,
-                     # legend='full',
+                     markers=markers,
+                     s=s,
+                     linewidth=linewidth,
+                     alpha=alpha,
+                     edgecolor=edgecolor,
                      ax=ax,
                      **kwargs
                      )
@@ -140,7 +194,7 @@ def scatterplot(x, y, df, palette, title=None, hue=None, hue_order=None, \
         ax.plot([0, 1],
                 [0, 1],
                 linestyle='--',
-                linewidth=2,
+                linewidth=0.8,
                 color='dimgrey'
                 )
 
@@ -151,7 +205,7 @@ def scatterplot(x, y, df, palette, title=None, hue=None, hue_order=None, \
 
      if title is not None: ax.set_title(title)
 
-     if xlim is not None: ax.set_ylim(xlim)
+     if xlim is not None: ax.set_xlim(xlim)
      if x_major_loc is not None: ax.xaxis.set_major_locator(MultipleLocator(x_major_loc))
 
      if ylim is not None: ax.set_ylim(ylim)

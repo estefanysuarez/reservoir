@@ -10,17 +10,28 @@ import numpy as np
 #%% --------------------------------------------------------------------------------------------------------------------
 # TASKS INPUTS/OUTPUTS
 # ----------------------------------------------------------------------------------------------------------------------
-def stack_seq(seq, n_nodes, input_nodes):
+def get_io_data(task, task_ref, n_nodes, input_nodes, **kwargs):
 
-    train_seq, test_seq = seq
+    def stack_seq(seq, n_nodes, input_nodes):
 
-    input_train = np.zeros((len(train_seq), n_nodes))
-    input_train[:,input_nodes] = np.repeat(train_seq[:,np.newaxis], len(input_nodes), axis=1)
+        train_seq, test_seq = seq
 
-    input_test = np.zeros((len(test_seq), n_nodes))
-    input_test[:,input_nodes] = np.repeat(test_seq[:,np.newaxis], len(input_nodes), axis=1)
+        input_train = np.zeros((len(train_seq), n_nodes))
+        input_train[:,input_nodes] = np.repeat(train_seq[:,np.newaxis], len(input_nodes), axis=1)
 
-    return (input_train, input_test)
+        input_test = np.zeros((len(test_seq), n_nodes))
+        input_test[:,input_nodes] = np.repeat(test_seq[:,np.newaxis], len(input_nodes), axis=1)
+
+        return (input_train, input_test)
+
+    if task == 'sgnl_recon':
+        inputs, outputs = get_sgnl_recon_IO(task_ref, **kwargs)
+        inputs = stack_seq(inputs, n_nodes, input_nodes)
+
+    if task == 'pttn_recog':
+        inputs, outputs = get_pattrn_rec_IO(task_ref, input_nodes, n_nodes, **kwargs)
+
+    return inputs, outputs
 
 
 def get_sgnl_recon_IO(task_ref = 'T1', time_len = 1000, step_len = 20, bias = 0.5, n_repeats=3, **kwargs):
@@ -108,19 +119,6 @@ def get_pattrn_rec_IO(task_ref, input_nodes, n_nodes, n_patterns=10, n_repeats=8
         y_test  = np.vstack(outputs[n_train_samples:])
 
     return (x_train, x_test), (y_train, y_test)
-
-
-def get_io_data(task, task_ref, n_nodes, input_nodes, **kwargs):
-
-    if task == 'sgnl_recon':
-        inputs, outputs = get_sgnl_recon_IO(task_ref, **kwargs)
-        inputs = stack_seq(inputs, n_nodes, input_nodes)
-
-    if task == 'pttn_recog':
-        inputs, outputs = get_pattrn_rec_IO(task_ref, input_nodes, n_nodes, **kwargs)
-
-    return inputs, outputs
-
 
 
 #%% --------------------------------------------------------------------------------------------------------------------

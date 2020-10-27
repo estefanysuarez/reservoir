@@ -10,11 +10,12 @@ import numpy as np
 import pandas as pd
 import networkx as nx
 
-from bct import reference
+from bct import (clustering, reference)
 
 from scipy.spatial.distance import cdist
 import scipy.stats as st
 
+from ..plotting import plot_tasks
 
 #%% --------------------------------------------------------------------------------------------------------------------
 # GENERAL METHODS
@@ -90,7 +91,7 @@ def watts_and_strogatz(conn, p_conn=[0.1], bin=False):
     return np.dstack(networks)
 
 
-def rand_mio(conn, swaps=1):
+def rand_mio(conn, swaps=10):
     """
         Parameters
         ----------
@@ -109,3 +110,187 @@ def rand_mio(conn, swaps=1):
         conn_mat, _ = reference.randmio_dir_connected(conn, swaps)
 
     return conn_mat
+
+
+#%% --------------------------------------------------------------------------------------------------------------------
+# NULL NETWORK MODELS
+# ----------------------------------------------------------------------------------------------------------------------
+def increase_modularity(conn, class_mapping, swaps=10, max_attempts=10):
+
+    new_conn = (conn.copy()-conn.min())/(conn.max()-conn.min())
+    n = len(new_conn)
+
+    eff = 0
+    for clase in np.unique(class_mapping):
+        print(f'\n-------------------{clase}---------------------------------')
+
+        swaps = int((swaps/100)*len(np.where(class_mapping == clase)[0]))
+        print(f'\t number of swaps: {swaps}')
+
+        for swap in range(swaps):
+            print(f'\t------------------- swap: {swap}---------------------------------')
+
+            # get pairs of nodes of existent edges across all the network
+            i,j = np.where(new_conn)
+
+            # filter edges
+            k = [e for e, (i,j) in enumerate(zip(i,j)) if ((class_mapping[i] == clase) and (class_mapping[i] != class_mapping[j]))]
+#            k = [e for e, (i,j) in enumerate(zip(i,j)) if ((class_mapping[i] == clase) and (class_mapping[j] != clase))]
+
+            # get and bin edges' weights
+            weights = new_conn[(i[k], j[k])]
+            categories = pd.qcut(pd.Series(weights),
+                                 q=50,
+                                 labels=False,
+                                 retbins=False,
+                                 precision=8
+                                )
+
+            categories = np.array(categories).astype(int)
+
+            # rewiring
+            att = 0
+            while att <= max_attempts:
+                print(f'\t\t-------------------attempt: {att}')
+
+                while True:
+                    # select 2 random different conenctions
+                    e1, e2 = np.random.choice(k, size=2, replace=False)
+
+                    # nodes of e1 and e1
+                    a = i[e1]
+                    b = j[e1]
+                    c = i[e2]
+                    d = j[e2]
+
+                    if (a != c and a != d and b != c and b != d) and (class_mapping[b] != class_mapping[d]) and (categories[k == e1][0] == categories[k == e2][0]):
+                        break  # all 4 vertices must be different
+
+                # rewiring condition
+                rewire = True
+                if not (new_conn[a, c] or new_conn[b, d]):
+
+                   # connectedness condition
+                   R = new_conn.copy()
+
+                   # e1
+                   R[a, c] = R[a, b]
+                   R[a, b] = 0
+                   R[c, a] = R[b, a]
+                   R[b, a] = 0
+
+                   # e2
+                   R[b, d] = R[c, d]
+                   R[c, d] = 0
+                   R[d, b] = R[d, c]
+                   R[d, c] = 0
+
+                   _, n_comp = clustering.get_components(R, no_depend=False)
+                   if n_comp[0] != n:
+                       rewire = False
+                   # end of connectedness condition
+
+                   if rewire:
+                       new_conn = R.copy()
+                       eff += 1
+                       break
+
+                att += 1
+
+    return new_conn, eff
+
+
+def decrease_modularity(conn, class_mapping, swaps=50, max_attempts=10):
+
+    new_conn = (conn.copy()-conn.min())/(conn.max()-conn.min())
+    n = len(new_conn)
+
+    eff = 0
+    for clase in np.unique(class_mapping):
+        print(f'\n-------------------{clase}---------------------------------')
+
+        swaps = int((swaps/100)*len(np.where(class_mapping == clase)[0]))
+        print(f'\t number of swaps: {swaps}')
+
+        for swap in range(swaps):
+            print(f'\t------------------- swap: {swap}---------------------------------')
+
+            # get pairs of nodes of existent edges across all the network
+            i,j = np.where(new_conn)
+
+            # filter edges
+            k1 = [e for e, (i,j) in enumerate(zip(i,j)) if (class_mapping[i] == class_mapping[j] == clase)]
+            k2 = [e for e, (i,j) in enumerate(zip(i,j)) if ((class_mapping[i] != clase) and (class_mapping[j] != clase) and (class_mapping[i] != class_mapping[j]))]
+
+            k = k1 + k2
+
+            # get and bin edges' weights
+            weights = new_conn[(i[k], j[k])]
+            categories = pd.qcut(pd.Series(weights),
+                                 q=50,
+                                 labels=False,
+                                 retbins=False,
+                                 precision=8
+                                )
+
+            categories = np.array(categories).astype(int)
+
+            # rewiring
+            att = 0
+            while att <= max_attempts:
+
+                print(f'\t\t-------------------attempt: {att}')
+
+                while True:
+                    # select 2 random different conenctions
+                    e1 = np.random.choice(k1, size=1, replace=False)
+                    e2 = np.random.choice(k2, size=1, replace=False)
+
+                    # nodes of e1 and e1
+                    a = i[e1]
+                    b = j[e1]
+                    c = i[e2]
+                    d = j[e2]
+
+                    if (a != c and a != d and b != c and b != d) and (categories[k == e1][0] == categories[k == e2][0]):
+                        break  # all 4 vertices must be different
+
+                if np.random.rand() > .5:
+                    i[e2] = d
+                    j[e2] = c  # flip edge c-d with 50% probability
+                    c = i[e2]
+                    d = j[e2]  # to explore all potential rewirings
+
+                # rewiring condition
+                rewire = True
+                if not (new_conn[a, d] or new_conn[c, b]):
+                    if not (new_conn[a, c] or new_conn[b, d]):
+
+                       # connectedness condition
+                       R = new_conn.copy()
+
+                       # e1
+                       R[a, d] = R[a, b]
+                       R[a, b] = 0
+                       R[d, a] = R[b, a]
+                       R[b, a] = 0
+
+                       # e2
+                       R[c, b] = R[c, d]
+                       R[c, d] = 0
+                       R[b, c] = R[d, c]
+                       R[d, c] = 0
+
+                       _, n_comp = clustering.get_components(R, no_depend=False)
+                       if n_comp[0] != n:
+                           rewire = False
+                       # end of connectedness condition
+
+                       if rewire:
+                           new_conn = R.copy()
+                           eff += 1
+                           break
+
+                att += 1
+
+    return new_conn, eff

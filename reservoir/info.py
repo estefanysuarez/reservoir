@@ -8,7 +8,7 @@ DESCRIPTION = 'A pythonic reservoir toolbox'
 #DOWNLOAD_URL = 'http://github.com/rmarkello/pyls'
 
 INSTALL_REQUIRES = [
-    'numpy>=1.17',
+    'numpy>=1.14',
     'scipy>=1.1',
     'scikit-learn==0.19.1',
     'pandas>=1.0.3',

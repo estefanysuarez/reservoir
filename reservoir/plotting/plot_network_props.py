@@ -5,9 +5,11 @@ import pandas as pd
 from sklearn.linear_model import LinearRegression
 
 import matplotlib.pyplot as plt
+from matplotlib.ticker import (MultipleLocator)
+
 import seaborn as sns
 from scipy import stats
-from .plot_tasks import (sort_class_labels, get_coding_scores_per_class)
+from .plot_tasks import (sort_class_labels)
 from ..network import network_properties
 
 from netneurotools import plotting
@@ -21,9 +23,41 @@ DECODE_COL = '#6CC8BA'
 # --------------------------------------------------------------------------------------------------------------------
 # GENERAL
 # ----------------------------------------------------------------------------------------------------------------------
+def concat_results(path, class_mapping, n_samples=1000):
+
+    df_net_props = []
+    for sample_id in range(n_samples):
+
+        print('\n sample_id:  ' + str(sample_id))
+        success_sample = True
+
+        try:
+            net_props = pd.read_csv(os.path.join(path, 'net_props_' + str(sample_id) + '.csv'), index_col=0)
+            net_prop_names = list(net_props.columns)
+            net_props['class'] = class_mapping
+            net_props = get_net_props_per_class(net_props)
+            net_props['sample_id'] = sample_id
+
+        except:
+            success_sample = False
+            print('\n Could not find sample No.  ' + str(sample_id))
+
+            pass
+
+        if success_sample:  df_net_props.append(net_props)
+
+    # concatenate dataframes
+    df_net_props = pd.concat(df_net_props)
+    df_net_props = df_net_props.loc[df_net_props['class'] != 'subctx', :]
+    df_net_props = df_net_props.reset_index(drop=True)
+    df_net_props = df_net_props[['sample_id', 'class'] + net_prop_names]
+
+    return df_net_props
+
+
 def get_net_props_per_class(df_net_props):
     """
-    Returns a DataFrame with the average network properties per class
+    Returns a DataFrame with the average network properties per class per subject
     """
     # get class labels
     class_labels = sort_class_labels(np.unique(df_net_props['class']))
@@ -34,6 +68,7 @@ def get_net_props_per_class(df_net_props):
     else:
 
         class_avg_net_props = {clase: df_net_props.loc[df_net_props['class'] == clase, :].mean() for clase in class_labels}
+        # class_avg_net_props = {clase: df_net_props.loc[df_net_props['class'] == clase, :].median() for clase in class_labels}
         class_avg_net_props = pd.DataFrame.from_dict(class_avg_net_props, orient='index').reset_index().rename(columns={'index':'class'})
         class_avg_net_props = class_avg_net_props.loc[:,~class_avg_net_props.columns.duplicated()]
 
@@ -41,142 +76,8 @@ def get_net_props_per_class(df_net_props):
 
 
 # --------------------------------------------------------------------------------------------------------------------
-# EXPLORING NETWORK PROPERTIES
-# ----------------------------------------------------------------------------------------------------------------------
-def boxplot_net_props_distribution_per_class(df_net_props, property, **kwargs):
-
-    class_labels = sort_class_labels(np.unique(df_net_props['class']))
-    print(class_labels)
-    colors = {clase:COLORS[i] for i, clase in enumerate(class_labels)}
-
-    sns.set(style="ticks")
-    fig = plt.figure(num=1, figsize=(10,5))
-    ax = plt.subplot(111)
-    axis = sns.boxplot(x='class',
-                       y=property,
-                       data=df_net_props,
-                       palette=colors,
-                       order=class_labels,
-                       orient='v',
-                       width = 0.5,
-                       linewidth=1, #2, 1
-                       ax=ax
-                       )
-
-    for patch in axis.artists:
-        r, g, b, a = patch.get_facecolor()
-        patch.set_facecolor((r, g, b, .8))
-
-    ax.legend(fontsize=15, frameon=False, ncol=1, loc='upper right')
-    # ax.get_legend().remove()
-    # ax.set_ylim(-0.01, 0.1)
-    sns.despine(offset=10, trim=True, bottom=False)
-    # fig.savefig(fname=os.path.join(RES_TASK_DIR, 'lnplot_' + np.unique(df_scores['statistic']) + '_encoding_vs_decoding.jpg'), transparent=True, bbox_inches='tight', dpi=300)
-    plt.show()
-    plt.close()
-
-
-def stripplot_net_props_distribution_per_class(df_net_props, property, **kwargs):
-
-    class_labels = sort_class_labels(np.unique(df_net_props['class']))
-    colors = {clase:COLORS[i] for i, clase in enumerate(class_labels)}
-
-    sns.set(style="ticks", font_scale=2.0)
-    fig = plt.figure(num=1, figsize=(15,7))
-    ax = plt.subplot(111)
-
-    # sns.stripplot(x='class',
-    #               y=property,
-    #               data=df_net_props,
-    #               palette=colors,
-    #               order=class_labels,
-    #               orient='v',
-    #               jitter=0.2,
-    #               edgecolor='dimgrey',
-    #               # linewidth=,
-    #               ax=ax
-    #               )
-
-    sns.swarmplot(x='class',
-                  y=property,
-                  data=df_net_props,
-                  palette=colors,
-                  order=class_labels,
-                  orient='v',
-                  edgecolor='dimgrey',
-                  # linewidth=,
-                  ax=ax
-                  )
-
-
-    # ax.legend(fontsize=15, frameon=False, ncol=1, loc='upper right')
-    # ax.get_legend().remove()
-
-    sns.despine(offset=10, trim=True, bottom=False)
-    # fig.savefig(fname=os.path.join(RES_TASK_DIR, 'lnplot_' + np.unique(df_scores['statistic']) + '_encoding_vs_decoding.jpg'), transparent=True, bbox_inches='tight', dpi=300)
-    plt.show()
-    plt.close()
-
-
-def barplot_net_props_across_classes(df_net_props, class_mapping, include_property=None):
-
-
-    property_list = list(df_net_props.columns)
-    df_net_props['class'] = class_mapping
-
-    if include_property is None: include_property = property_list
-
-    sns.set(style="ticks")
-    colors = np.array([COLORS[np.where(class_names==mapp)[0][0]] for mapp in class_mapping_ctx])
-
-    for i, prop_name in enumerate(property_list):
-
-        if prop_name in include_property:
-            # bar graph plot
-            fig = plt.figure(num=i, figsize=(20,5))
-            ax = plt.subplot(111)
-
-            prop = df_net_props.loc[:, [prop_name]].squeeze()
-            sorted_idx_prop = np.argsort(prop)
-
-            ax.bar(x=np.arange(len(prop)),
-                   height=prop[sorted_idx_prop],
-                   color=colors[sorted_idx_prop],
-                   width=1.0
-                   )
-
-            ax.set_title('prop: ' + prop_name)
-
-        #    plt.xticks(np.arange(len(grad)), class_mapping_ctx[sorted_idx])
-            sns.despine(offset=10, trim=True, bottom=True)
-            plt.show()
-            plt.close()
-
-
-def pairplot_net_props(df_net_props):
-
-    sns.set(style="ticks", font_scale=2.0)
-    fig = plt.figure(num=1, figsize=(10,10))
-    ax = plt.subplot(111)
-
-    sns.pairplot(df_net_props,
-                 hue="rsn",
-                 hue_order=['VIS', 'SM', 'DA', 'VA', 'LIM', 'FP', 'DMN'],
-                 palette=COLORS[:-1],
-                 ax=ax
-                 )
-
-    sns.despine(offset=10, trim=True)
-    ax.set_title('origin: ' + clase)
-    # fig.savefig(fname='C:/Users/User/Desktop/poster/figures/barplot_effect_size.eps', transparent=True, bbox_inches='tight', dpi=300)
-    # fig.savefig(fname='C:/Users/User/Desktop/poster/figures/barplot_effect_size.jpg', transparent=True, bbox_inches='tight', dpi=300)
-    plt.show()
-    plt.close()
-
-
-# --------------------------------------------------------------------------------------------------------------------
-# EXPLORING BINARY CONNECTIVITY PROFILE
-# ----------------------------------------------------------------------------------------------------------------------
+# EXPLORING NETWORK PROPERTIES & BINARY CONNECTIVITY PROFILE
+# --------------------------------- -------------------------------------------------------------------------------------
 def get_conn_profile_per_class(conn, class_labels, class_mapping):
 
     conn_bin = conn.copy().astype(bool).astype(int)
@@ -236,8 +137,51 @@ def barplot_conn_profile(df_conn_profile, class_list=None):
         plt.close()
 
 
+def distplt_net_props_per_class(df_net_props):
+
+    if 'sample_id' in df_net_props.columns: net_props = np.array(df_net_props.columns[2:])
+    else:net_props = np.array(df_net_props.columns[:-1])
+
+    for prop in net_props:
+        try:
+            # -----------
+            sns.set(style="ticks", font_scale=2.0)
+
+            fig = plt.figure(figsize=(18,7))
+            ax = plt.subplot(111)
+
+            df_net_props[prop] = (df_net_props[prop]-min(df_net_props[prop]))/(max(df_net_props[prop])-min(df_net_props[prop]))
+
+            for i, clase in enumerate(sort_class_labels(np.unique(df_net_props['class']))):
+                sns.distplot(a=df_net_props.loc[df_net_props['class'] == clase, prop].values,
+                             bins=50,
+                             hist=False,
+                             kde=True,
+                             kde_kws={'shade':True, 'clip':(0,1)},
+                             color=COLORS[i],
+                             label=clase,
+                             )
+
+            ax.set_xlim(0,1)
+            ax.xaxis.set_major_locator(MultipleLocator(0.25))
+
+            # ax.set_ylim(0,20)
+            ax.get_yaxis().set_visible(False)
+
+            ax.get_legend().remove()
+
+            sns.despine(offset=10, trim=True, left=True)
+            plt.suptitle(' '.join(prop.split('_')))
+        #    fig.savefig(fname=os.path.join('C:/Users/User/Dropbox/figures_RC/eps', f'{prop}_{CONNECTOME[-3:]}.eps'), transparent=True, bbox_inches='tight', dpi=300)
+            plt.show()
+
+        except ZeroDivisionError:
+            pass
+
+
+
 # --------------------------------------------------------------------------------------------------------------------
-# NETWORK PROPERTIES VS CODING SCORES
+# PI - NETWORK PROPERTIES VS CODING SCORES
 # ----------------------------------------------------------------------------------------------------------------------
 def regplot_net_props_vs_coding_scores(df, score, properties=None, norm_score_by=None, minmax_scale=True, fit_reg=True):
     """
@@ -471,100 +415,109 @@ def scatterplot_net_props_vs_coding_scores(df, score, properties=None, norm_scor
         plt.close()
 
 
-# --------------------------------------------------------------------------------------------------------------------
-# ENCODING VS DECODING - REGRESSING OUT NETWORK PROPERTIES
+#%% --------------------------------------------------------------------------------------------------------------------
+# PII - NETWORK PROPERTIES VS CODING SCORES
 # ----------------------------------------------------------------------------------------------------------------------
-def scatterplot_enc_vs_dec(df, score, norm_score_by=None, minmax_scale=True, hue='class', **kwargs):
-    """
-        Scatter plot (avg across alphas) encoding/decoding score vs (avg across nodes) network property
-    """
+def distplt_corr_net_props_and_scores_per_prop(corr, net_prop_names, dynamics):
 
-    if norm_score_by is not None:
+    colors = sns.color_palette(["#2ecc71", "#3498db",  "#9b59b6"])
 
-        # divide coding scores by degree
-        # df['encoding_' + score] = df['encoding_' + score]/df[norm_score_by]
-        # df['decoding_' + score] = df['decoding_' + score]/df[norm_score_by]
+    for j, prop in enumerate(net_prop_names):
 
-        # regress out degree from coding scores
-        X = np.array(df[norm_score_by])[:, np.newaxis]
+        sns.set(style="ticks", font_scale=2.0)
+        fig = plt.figure(figsize=(10,7))
+        ax = plt.subplot(111)
 
-        reg_enc = LinearRegression().fit(X, y=df['encoding_' + score])
-        tmp_encode_scores = df['encoding_' + score] - reg_enc.predict(X)
-        df['encoding_' + score] = tmp_encode_scores
+        for i, dyn_regime in enumerate(dynamics):
+            sns.distplot(a=corr[:,j,i],
+                         bins=50,
+                         hist=False,
+                         kde=True,
+                         kde_kws={'shade':True, 'clip':(-1,1)},
+                         color=colors[i],
+                         label=' '.join(dyn_regime.split('_')),
+                         )
 
-        reg_dec = LinearRegression().fit(X, y=df['decoding_' + score])
-        tmp_decode_scores = df['decoding_' + score] - reg_dec.predict(X)
-        df['decoding_' + score] = tmp_decode_scores
+        ax.set_xlim(-1,1)
+        ax.xaxis.set_major_locator(MultipleLocator(0.5))
 
-    if minmax_scale:
+        # ax.set_ylim(0,15)
+        ax.get_yaxis().set_visible(False)
 
-        # -----------------------------------------------------------------------
-        # estimate "global" min and max, and scale scores
-        maxm = max(np.max(df['encoding_' + score]), np.max(df['decoding_' + score]))
-        minm = min(np.min(df['encoding_' + score]), np.min(df['decoding_' + score]))
+        # ax.get_legend().remove()
 
-        # df['encoding_' + score] = np.log(((df['encoding_' + score]-minm)/(maxm-minm))+1)
-        # df['decoding_' + score] = np.log(((df['decoding_' + score]-minm)/(maxm-minm))+1)
+        plt.suptitle(' '.join(prop.split('_')))
 
-        df['encoding_' + score] = ((df['encoding_' + score]-minm)/(maxm-minm))
-        df['decoding_' + score] = ((df['decoding_' + score]-minm)/(maxm-minm))
+        sns.despine(offset=10, trim=True, left=True)
+        fig.savefig(fname=os.path.join('C:/Users/User/Dropbox/figures_RC/eps', f'{prop}.eps'), transparent=True, bbox_inches='tight', dpi=300)
+        plt.show()
 
-        # -----------------------------------------------------------------------
-        # estimate "local" min and max, and scale scores
-        # df['encoding_' + score] = np.log(((df['encoding_' + score]-np.min(df['encoding_' + score]))/(np.max(df['encoding_' + score])-np.min(df['encoding_' + score]))+1))
-        # df['decoding_' + score] = np.log(((df['decoding_' + score]-np.min(df['decoding_' + score]))/(np.max(df['decoding_' + score])-np.min(df['decoding_' + score]))+1))
 
-        # -----------------------------------------------------------------------
+def distplot_corr_net_props_and_scores_per_regime(corr, net_prop_names, dynamics):
 
-    # plot
-    sns.set(style="ticks", font_scale=2.0)
-    fig = plt.figure(num=1, figsize=(10,10))
+    colors = sns.color_palette("cubehelix", len(net_prop_names)+1)[1:]
+    #("GnBu_d", len(net_prop_names)) ("cubehelix", len(net_prop_names)) sns.cubehelix_palette(len(net_prop_names))
 
-    ax = plt.subplot(111)
-    sns.scatterplot(
-                    x='decoding_' + score,
-                    y='encoding_' + score,
-                    data=df,
-                    hue=hue,
-                    palette=COLORS[:-1],
-                    # legend='full',
-                    ax=ax,
-                    **kwargs
-                    )
+    for i, dyn_regime in enumerate(dynamics):
 
-    if minmax_scale:
-        maxm = 1.0
-        minm = 0.0
-        mp = 0.2
+         sns.set(style="ticks", font_scale=2.0)
 
-    else:
-        maxm = np.ceil(max(np.max(df['encoding_' + score]), np.max(df['decoding_' + score])))
-        minm = np.floor(min(np.min(df['encoding_' + score]), np.min(df['decoding_' + score])))+1.0
-        mp = 0.5
+         fig = plt.figure(figsize=(20,7))
+         ax = plt.subplot(111)
 
-    ax.plot([minm, maxm],
-            [minm, maxm],
-            linestyle='--',
-            linewidth=2,
-            color='dimgrey'
-            )
+         for j, prop in enumerate(net_prop_names):
 
-    ax.set_aspect("equal")
+             sns.distplot(a=corr[:,j,i],
+                          bins=50,
+                          hist=False,
+                          kde=True,
+                          kde_kws={'shade':True, 'clip':(-1,1)},
+                          color=colors[j],
+                          label=' '.join(prop.split('_')),
+                          )
 
-    # properties axis 1
-    ax.set_title(r'$R: %.2f $' % (np.round(np.corrcoef(df['encoding_' + score], df['decoding_' + score])[0][1], 2)))
-    # ax.set_title(r'$\rho: %.2f \;\;\; p_{val}= %.3f$' % (np.round(stats.spearmanr(df[prop], df['encoding_' + score])[0], 2), \
-                                                          # np.round(stats.spearmanr(df[prop], df['encoding_' + score])[1], 2)), fontsize=13)
-    ax.set_xlim(minm, maxm)
-    ax.xaxis.set_major_locator(plt.MultipleLocator(mp))
+         ax.set_xlim(-1,1)
+         ax.xaxis.set_major_locator(MultipleLocator(0.25))
 
-    ax.set_ylim(minm, maxm)
-    ax.yaxis.set_major_locator(plt.MultipleLocator(mp))
+         # ax.set_ylim(0,20)
 
-    # ax.legend(fontsize=15, frameon=True, ncol=1, loc=9) #'upper center')
-    ax.get_legend().remove()
+         plt.suptitle(' '.join(dyn_regime.split('_')))
+         sns.despine(offset=10, trim=True)
+         plt.show()
 
-    sns.despine(offset=10, trim=False)
-    # fig.savefig(fname=os.path.join(RES_DIR, 'performance.jpg'), transparent=True, bbox_inches='tight', dpi=300,)
-    plt.show()
-    plt.close()
+
+def distplot_corr_net_props_and_scores_per_regime_sorted(corr, net_prop_names, dynamics):
+
+    colors = sns.color_palette("coolwarm", len(net_prop_names))
+    #("GnBu_d", len(net_prop_names)) ("cubehelix", len(net_prop_names)) sns.cubehelix_palette(len(net_prop_names))
+
+    for i, dyn_regime in enumerate(dynamics):
+
+         sns.set(style="ticks", font_scale=2.0)
+
+         fig = plt.figure(figsize=(20,7))
+         ax = plt.subplot(111)
+
+         median = np.median(corr[:,:,i], axis=0)
+         idx_sorted_props = np.argsort(median)
+         sorted_net_props = np.array(net_prop_names.copy())[idx_sorted_props]  #np.array(df_net_props.columns[2:])[sorted_props]
+
+         for j, prop in zip(idx_sorted_props, sorted_net_props):
+
+             sns.distplot(a=corr[:,j,i],
+                          bins=50,
+                          hist=False,
+                          kde=True,
+                          kde_kws={'shade':True, 'clip':(-1,1)},
+                          color=colors[np.where(idx_sorted_props==j)[0][0]],
+                          label=' '.join(prop.split('_')),
+                          )
+
+         ax.set_xlim(-1,1)
+    #     ax.set_ylim(0,20)
+         ax.xaxis.set_major_locator(MultipleLocator(0.25))
+
+         plt.suptitle(' '.join(dyn_regime.split('_')))
+
+         sns.despine(offset=10, trim=True)
+         plt.show()
