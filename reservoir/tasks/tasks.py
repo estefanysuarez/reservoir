@@ -74,7 +74,6 @@ def run_mem_cap(X, Y, TAU=None, normalize=False, ax=None, **kwargs):
 
        with np.errstate(divide='ignore', invalid='ignore'):
            perf = np.abs(np.corrcoef(y_test[:-tau], y_pred)[0][1])
-           # print(perf)
 
            # if perf > 0.80:
            #     print('\n----------------------')
@@ -293,7 +292,6 @@ def run_task(task, target, reservoir_states, readout_nodes=None, include_alpha=N
         ALPHA) of the task specified by 'task', and returns a PERF estimate
         across the different alpha values.
     """
-
     # perform task for different reservoir states corresponding to different alpha values
     res = []
     for idx, x in enumerate(reservoir_states):
@@ -320,7 +318,7 @@ def run_task(task, target, reservoir_states, readout_nodes=None, include_alpha=N
         res.append(perf) # across task parameters
 
     # all alpha values at which the network was simulated
-    if include_alpha is None: include_alpha = get_default_task_params(task)
+    if include_alpha is None: include_alpha = get_default_alpha_values(task)
 
     return res, task_params, include_alpha # across task parameters and alpha values
 
@@ -330,7 +328,6 @@ def get_scores_per_alpha(task, performance, task_params, thres=0.9, normalize=Fa
         This method returns the parameters at which the best performance across
         different alpha values occurs.
     """
-
 
     # estimate capacity across task params per alpha value
     if (task == 'mem_cap') or (task == 'nonlin_cap'):
@@ -367,7 +364,6 @@ def get_scores_per_alpha(task, performance, task_params, thres=0.9, normalize=Fa
     perf_per_alpha = np.array([np.sum(perf) for perf in performance])
 
     return perf_per_alpha, cap_per_alpha
-
 
 
 # def run_pattrn_recog(target, reservoir_states, time_lens, normalize=False, **kwargs):

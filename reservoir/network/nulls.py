@@ -15,8 +15,6 @@ from bct import (clustering, reference)
 from scipy.spatial.distance import cdist
 import scipy.stats as st
 
-from ..plotting import plot_tasks
-
 #%% --------------------------------------------------------------------------------------------------------------------
 # GENERAL METHODS
 # ----------------------------------------------------------------------------------------------------------------------
