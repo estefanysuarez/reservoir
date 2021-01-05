@@ -365,43 +365,43 @@ def get_scores_per_alpha(task, performance, task_params, thres=0.9, normalize=Fa
 
     return perf_per_alpha, cap_per_alpha
 
-
-# def run_pattrn_recog(target, reservoir_states, time_lens, normalize=False, **kwargs):
 #
-#     if normalize: reservoir_states = (reservoir_states - reservoir_states.mean(axis=1)[:,np.newaxis])
-#
-#     sections = [np.sum(time_lens[:idx]) for idx in range(1, len(time_lens))]
-#     X = np.split(reservoir_states.squeeze(), sections, axis=0)
-#     Y = np.split(target, sections, axis=0)
-#
-#     train_frac = 0.9
-#     n_samples = len(X)
-#     n_train_samples = int(round(n_samples * train_frac))
-#     n_test_samples = int(round(n_samples * (1 - train_frac)))
-#
-#     x_train = np.vstack(X[:n_train_samples])
-#     y_train = np.vstack(Y[:n_train_samples])
-#
-#     x_test = np.vstack(X[n_train_samples:])
-#     y_test = Y[n_train_samples:]
-#
-#     ridge_multi_regr = MultiOutputRegressor(Ridge(fit_intercept=True, normalize=False, solver='auto', alpha=0.0))
-#     Y_pred = np.split(ridge_multi_regr.fit(x_train, y_train).predict(x_test), np.array(sections[n_train_samples:]), axis=0)
-#
-#     #lr_multi_regr = MultiOutputRegressor(LinearRegression(fit_intercept=True, normalize=False, copy_X = True))
-#     #Y_pred = np.split(lr_multi_regr.fit(x_train, y_train).predict(x_test), np.array(pattern_lens[train_samples:-1]), axis=0)
-#
-#     Y_test_mean = sp.array([sp.argmax(mdp.numx.atleast_2d(mdp.numx.mean(sample, axis=0))) for sample in y_test])
-#     print(Y_test_mean)
-#
-#     Y_pred_mean = sp.array([sp.argmax(mdp.numx.atleast_2d(mdp.numx.mean(sample, axis=0))) for sample in Y_pred])
-#     print(Y_pred_mean)
-#
-#     with np.errstate(divide='ignore', invalid='ignore'):
-#         cm = metrics.confusion_matrix(Y_test_mean, Y_pred_mean)
-#         cm_norm = np.diagonal(cm)/np.sum(cm, axis=1)
-#         perf = len(np.where(cm_norm > 0.9)[0])
-#
-#         # print('\n---------' + str(perf))
-#
-#     return perf
+# # def run_pattrn_recog(target, reservoir_states, time_lens, normalize=False, **kwargs):
+# #
+# #     if normalize: reservoir_states = (reservoir_states - reservoir_states.mean(axis=1)[:,np.newaxis])
+# #
+# #     sections = [np.sum(time_lens[:idx]) for idx in range(1, len(time_lens))]
+# #     X = np.split(reservoir_states.squeeze(), sections, axis=0)
+# #     Y = np.split(target, sections, axis=0)
+# #
+# #     train_frac = 0.9
+# #     n_samples = len(X)
+# #     n_train_samples = int(round(n_samples * train_frac))
+# #     n_test_samples = int(round(n_samples * (1 - train_frac)))
+# #
+# #     x_train = np.vstack(X[:n_train_samples])
+# #     y_train = np.vstack(Y[:n_train_samples])
+# #
+# #     x_test = np.vstack(X[n_train_samples:])
+# #     y_test = Y[n_train_samples:]
+# #
+# #     ridge_multi_regr = MultiOutputRegressor(Ridge(fit_intercept=True, normalize=False, solver='auto', alpha=0.0))
+# #     Y_pred = np.split(ridge_multi_regr.fit(x_train, y_train).predict(x_test), np.array(sections[n_train_samples:]), axis=0)
+# #
+# #     #lr_multi_regr = MultiOutputRegressor(LinearRegression(fit_intercept=True, normalize=False, copy_X = True))
+# #     #Y_pred = np.split(lr_multi_regr.fit(x_train, y_train).predict(x_test), np.array(pattern_lens[train_samples:-1]), axis=0)
+# #
+# #     Y_test_mean = sp.array([sp.argmax(mdp.numx.atleast_2d(mdp.numx.mean(sample, axis=0))) for sample in y_test])
+# #     print(Y_test_mean)
+# #
+# #     Y_pred_mean = sp.array([sp.argmax(mdp.numx.atleast_2d(mdp.numx.mean(sample, axis=0))) for sample in Y_pred])
+# #     print(Y_pred_mean)
+# #
+# #     with np.errstate(divide='ignore', invalid='ignore'):
+# #         cm = metrics.confusion_matrix(Y_test_mean, Y_pred_mean)
+# #         cm_norm = np.diagonal(cm)/np.sum(cm, axis=1)
+# #         perf = len(np.where(cm_norm > 0.9)[0])
+# #
+# #         # print('\n---------' + str(perf))
+# #
+# #     return perf
