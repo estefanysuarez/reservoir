@@ -37,13 +37,13 @@ def decoder(method='basic', **kwargs):
 #%% --------------------------------------------------------------------------------------------------------------------
 # BASIC CODING MODE (V1)
 # ----------------------------------------------------------------------------------------------------------------------
-def coding(task, target, reservoir_states, output_nodes, **kwargs):
+def coding(task, target, reservoir_states, readout_nodes=None, **kwargs):
 
     # get performance (R) across task parameters and alpha values
     res, task_params, alpha = tasks.run_task(task=task,
                                              target=target,
                                              reservoir_states=reservoir_states,
-                                             readout_nodes=output_nodes,
+                                             readout_nodes=readout_nodes,
                                              **kwargs
                                              )
 
@@ -54,113 +54,131 @@ def coding(task, target, reservoir_states, output_nodes, **kwargs):
                                                        **kwargs
                                                        )
 
-    # create dataframe
     df_res = pd.DataFrame(data=np.column_stack((alpha, performance, capacity)),
                           columns=['alpha', 'performance', 'capacity'])
-    df_res['n_nodes'] = len(output_nodes)
+
+    df_res['n_nodes'] = len(readout_nodes)
 
     return df_res
 
 
-def basic_encoder(task, target, reservoir_states, output_nodes=None, class_labels=None, class_mapp=None, **kwargs):
+def basic_encoder(task, target, reservoir_states, readout_modules=None, **kwargs):
     """
-        Given the reservoir_states of the network and the target signal corresponding
-        to a given task, this method returns the encoding capacity for a given set
-        of output_nodes. If output_nodes is None, then it will return the
-        encoding capacity per class for each of the classes in class_labels.
+        Given the reservoir_states of the network and the target signal
+        for a given task, this method returns the encoding capacity for a given
+        set of readout_modules. If readout_modules is None, then it will return the
+        encoding capacity of all the nodes in reservoir_states.
     """
-    if output_nodes is None:
+
+    if readout_modules is None:
+        df_encoding = coding(task=task,
+                             target=target,
+                             reservoir_states=reservoir_states,
+                             **kwargs
+                             )
+
+    else:
+        module_ids = np.unique(readout_modules)
+
         encoding = []
-        for clase in class_labels:
-            print('---------------------------' + str(clase) + '------------------------------------------------------')
+        for module in module_ids:
+            print(f'--------------------------- Module : {module} ------------------------------')
 
             # get set of output nodes
-            output_nodes = np.where(class_mapp == clase)[0]
+            readout_nodes = np.where(readout_modules == module)[0]
 
             # create temporal dataframe
-            tmp_df = coding(task, target, reservoir_states, output_nodes, **kwargs)
-            tmp_df['class'] = clase
+            tmp_df = coding(task=task,
+                            target=target,
+                            reservoir_states=reservoir_states,
+                            readout_nodes=readout_nodes,
+                            **kwargs
+                            )
+
+            tmp_df['module'] = module
 
             #get encoding scores
             encoding.append(tmp_df)
 
         df_encoding = pd.concat(encoding)
 
-    else:
-        df_encoding = coding(task, target, reservoir_states, output_nodes, **kwargs)
-
     return df_encoding
 
 
-def basic_decoder(task, target, reservoir_states, output_nodes=None, class_labels=None, class_mapp=None, \
-                  bin_conn=None, exclude_within_nodes=True, **kwargs):
+def basic_decoder(task, target, reservoir_states, readout_modules, bin_conn, \
+                  exclude_within_nodes=True, **kwargs):
     """
-        Given the reservoir_states of the network and the target signal corresponding
-        to a given task, this method returns the decoding capacity for a given set
-        of output_nodes. If output_nodes is None, then it will return the
-        decoding capacity per class for each of the classes in class_labels.
+        Given the reservoir_states of the network and the target signal
+        for a given task, this method returns the decoding capacity for a given
+        set of readout_modules.
     """
+    module_ids = np.unique(readout_modules)
 
-    if output_nodes is None:
-        decoding = []
-        for clase in class_labels:
+    decoding = []
+    for module in module_ids:
+        print(f'--------------------------- Module : {module} ------------------------------')
 
-            print('---------------------------' + str(clase) + '------------------------------------------------------')
+        nodes_within  = np.where(readout_modules == module)[0]
+        nodes_outside = np.where(readout_modules != module)[0]
 
-            nodes_within  = np.where(class_mapp == clase)[0]
-            nodes_outside = np.where(class_mapp != clase)[0]
+        bin_conn_module = bin_conn[nodes_within, :]
+        bin_conn_profile_module = np.sum(bin_conn_module, axis=0).astype(bool).astype(int)
 
-            bin_conn_class = bin_conn[nodes_within, :]
-            bin_conn_profile_class = np.sum(bin_conn_class, axis=0).astype(bool).astype(int)
+        try:
+            unique_mapps, counts = np.unique(readout_modules[bin_conn_profile_module == 1], return_counts=True)
 
-            try:
-                unique_mapps, counts = np.unique(class_mapp[bin_conn_profile_class == 1], return_counts=True)
-                if exclude_within_nodes:
-                    unique_mapps, counts = np.unique(class_mapp[nodes_outside][bin_conn_profile_class[nodes_outside] == 1], return_counts=True)
+            if exclude_within_nodes:
+                unique_mapps, counts = np.unique(readout_modules[nodes_outside][bin_conn_profile_module[nodes_outside] == 1], return_counts=True)
 
-                composition = (counts/np.sum(counts))
-                new_conn_profile = np.round(len(nodes_within)*composition, 0).astype(int)
+            composition = (counts/np.sum(counts))
+            new_conn_profile = np.round(len(nodes_within)*composition, 0).astype(int)
 
-                cont = 0
-                while np.sum(new_conn_profile) > len(nodes_within):
-                    cont += 1
-                    new_conn_profile[np.argsort(composition)[-cont]] -= 1
+            cont = 0
+            while np.sum(new_conn_profile) > len(nodes_within):
+                cont += 1
+                new_conn_profile[np.argsort(composition)[-cont]] -= 1
 
-                cont = 0
-                while np.sum(new_conn_profile) < len(nodes_within):
-                    cont += 1
-                    new_conn_profile[np.argsort(composition)[-cont]] += 1
+            cont = 0
+            while np.sum(new_conn_profile) < len(nodes_within):
+                cont += 1
+                new_conn_profile[np.argsort(composition)[-cont]] += 1
 
+            # build distribution of scores for multiple neighbour nodes
+            tmp = []
+            for i in range(100):
 
-                #build distribution of scores
-                tmp = []
-                for i in range(100):
+                if i % 20 == 0:
+                    print(f'\t---------- iter No. {i} ----------')
 
-                    if i % 20 == 0:
-                        print('-------------------' + str(i) + '--------------------')
+                # get set of output nodes
+                readout_nodes = []
+                for num_nodes, mapp in zip(new_conn_profile, unique_mapps):
+                    tmp_set_mapp = np.logical_and((readout_modules == mapp), (bin_conn_profile_module == 1))
+                    if exclude_within_nodes: tmp_set_mapp[nodes_within] = False
+                    readout_nodes.extend(np.random.choice(np.where(tmp_set_mapp)[0], num_nodes, replace=False))
 
-                    output_nodes = []
-                    for num_nodes, mapp in zip(new_conn_profile, unique_mapps):
-                        tmp_set_mapp = np.logical_and((class_mapp == mapp), (bin_conn_profile_class == 1))
-                        if exclude_within_nodes: tmp_set_mapp[nodes_within] = False
-                        output_nodes.extend(np.random.choice(np.where(tmp_set_mapp)[0], num_nodes, replace=False))
+                tmp_df = coding(task=task,
+                                target=target,
+                                reservoir_states=reservoir_states,
+                                readout_nodes=readout_nodes,
+                                **kwargs
+                                )
 
-                    tmp_df = coding(task, target, reservoir_states, output_nodes, **kwargs)
-                    tmp.append(tmp_df.values)
+                tmp.append(tmp_df.values)
 
-                tmp_df = pd.DataFrame(data=np.dstack(tmp).mean(axis=2),
-                                      columns=['alpha', 'performance', 'capacity', 'n_nodes']
-                                      )
-                tmp_df['class'] = clase
+            tmp_df = pd.DataFrame(data=np.dstack(tmp).mean(axis=2),
+                                  columns=['alpha', 'performance', 'capacity', 'n_nodes']
+                                  )
+            tmp_df['module'] = module
 
-                decoding.append(tmp_df)
+            decoding.append(tmp_df)
 
-            except(IndexError):
-                pass
+        except(IndexError):
+            pass
 
-        df_decoding = pd.concat(decoding)
+    df_decoding = pd.concat(decoding)
 
-    else:
-        df_decoding = coding(task, target, reservoir_states, output_nodes, **kwargs)
+    print(df_decoding.head)
+
 
     return df_decoding

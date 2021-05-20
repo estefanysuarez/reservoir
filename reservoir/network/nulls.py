@@ -22,13 +22,19 @@ def check_symmetric(a, tol=1e-16):
     return np.allclose(a, a.T, atol=tol)
 
 
-def construct_network_model(conn, type, **kwargs):
+def construct_null_model(type, **kwargs):
 
     if type == 'rand_mio':
-        new_conn = rand_mio(conn, **kwargs)
+        new_conn = rand_mio(**kwargs)
 
     elif type == 'watts_and_strogatz':
-        new_conn = watts_and_strogatz(conn, **kwargs)
+        new_conn = watts_and_strogatz(**kwargs)
+
+    elif type == 'randmio_one_unperturbed':
+        new_conn = randmio_but_unperturbed(**kwargs)
+
+    elif type == 'erdos_renyi':
+        new_conn = erdos_renyi(**kwargs)
 
     return new_conn
 
@@ -36,6 +42,22 @@ def construct_network_model(conn, type, **kwargs):
 #%% --------------------------------------------------------------------------------------------------------------------
 # NULL NETWORK MODELS
 # ----------------------------------------------------------------------------------------------------------------------
+def erdos_renyi(conn=None, density=0.025, **kwargs):
+
+    if conn is not None: density = np.sum(conn.astype(bool).astype(int))/(len(conn)**2)
+
+    new_conn = nx.to_numpy_array(nx.fast_gnp_random_graph(p=density, directed=False, **kwargs))
+    new_conn = new_conn*np.random.uniform(-1, 1, new_conn.shape)
+    new_conn[np.where(abs(new_conn) <= 0.00001)] = 0
+
+    upper_diag = new_conn.copy()[np.triu_indices_from(new_conn, 1)]
+    new_conn = new_conn.T
+    new_conn[np.triu_indices_from(new_conn, 1)] = upper_diag
+    np.fill_diagonal(new_conn,0)
+
+    return new_conn
+
+
 def watts_and_strogatz(conn, p_conn=[0.1], bin=False):
 
     # scale conn data
@@ -113,6 +135,90 @@ def rand_mio(conn, swaps=10):
 #%% --------------------------------------------------------------------------------------------------------------------
 # NULL NETWORK MODELS
 # ----------------------------------------------------------------------------------------------------------------------
+def randmio_but_unperturbed(conn, class_mapping, swaps=10, unperturbed=None): #max_attempts=3,
+
+    conn = conn.copy()
+    n = len(conn)
+    i, j = np.where(np.tril(conn))
+
+    k = [e for e, (i,j) in enumerate(zip(i,j)) if not (class_mapping[i] == unperturbed and class_mapping[j] == unperturbed)]
+
+    swaps *= len(k)
+
+    # maximum number of rewiring attempts per iteration
+    max_attempts = np.round(n * len(k) / (n * (n - 1)))
+
+    # actual number of successful rewirings
+    eff = 0
+
+    for it in range(int(swaps)):
+        att = 0
+        while att <= max_attempts:  # while not rewired
+            rewire = True
+
+            while True:
+                e1, e2 = np.random.choice(k, size=2, replace=False)
+
+                a = i[e1]
+                b = j[e1]
+                c = i[e2]
+                d = j[e2]
+
+                if (a != c and a != d and b != c and b != d) and not((unperturbed in class_mapping[[a,b]]) and (unperturbed in class_mapping[[c,d]])):
+                    break  # all 4 vertices must be different and edges must not belong both to unperturbed
+
+            if np.random.rand() > .5:
+
+                i.setflags(write=True)
+                j.setflags(write=True)
+                i[e2] = d
+                j[e2] = c  # flip edge c-d with 50% probability
+                c = i[e2]
+                d = j[e2]  # to explore all potential rewirings
+
+            # rewiring condition
+            if not (conn[a, d] or conn[c, b]):
+                # connectedness condition
+                if not (conn[a, c] or conn[b, d]):
+                    P = conn[(a, d), :].copy()
+                    P[0, b] = 0
+                    P[1, c] = 0
+                    PN = P.copy()
+                    PN[:, d] = 1
+                    PN[:, a] = 1
+                    while True:
+                        P[0, :] = np.any(conn[P[0, :] != 0, :], axis=0)
+                        P[1, :] = np.any(conn[P[1, :] != 0, :], axis=0)
+                        P *= np.logical_not(PN)
+                        if not np.all(np.any(P, axis=1)):
+                            rewire = False
+                            break
+                        elif np.any(P[:, (b, c)]):
+                            break
+                        PN += P
+                # end connectedness testing
+
+                if rewire:
+                    conn[a, d] = conn[a, b]
+                    conn[a, b] = 0
+                    conn[d, a] = conn[b, a]
+                    conn[b, a] = 0
+                    conn[c, b] = conn[c, d]
+                    conn[c, d] = 0
+                    conn[b, c] = conn[d, c]
+                    conn[d, c] = 0
+
+                    j.setflags(write=True)
+                    j[e1] = d
+                    j[e2] = b  # reassign edge indices
+                    eff += 1
+                    break
+
+            att += 1
+
+    return conn#, eff
+
+
 def increase_modularity(conn, class_mapping, swaps=10, max_attempts=10):
 
     new_conn = (conn.copy()-conn.min())/(conn.max()-conn.min())
